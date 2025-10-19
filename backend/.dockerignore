@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.production
+.git
+.gitignore
+README.md
+.vscode
+.idea
+*.log
+coverage
+.nyc_output
+service-account-key.json
+

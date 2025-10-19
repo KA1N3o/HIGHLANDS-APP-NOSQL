@@ -1,0 +1,47 @@
+# Google Cloud Build configuration for deploying to Cloud Run
+
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/highlands-coffee-api:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/highlands-coffee-api:latest'
+      - '.'
+    dir: 'backend'
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/highlands-coffee-api:$COMMIT_SHA'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/highlands-coffee-api:latest'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'highlands-coffee-api'
+      - '--image=gcr.io/$PROJECT_ID/highlands-coffee-api:$COMMIT_SHA'
+      - '--region=asia-southeast1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,BIGTABLE_INSTANCE_ID=highlands-coffee,NODE_ENV=production'
+      - '--set-secrets=JWT_SECRET=jwt-secret:latest'
+
+images:
+  - 'gcr.io/$PROJECT_ID/highlands-coffee-api:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/highlands-coffee-api:latest'
+
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
