@@ -26,30 +26,39 @@ class ApiService {
 
   // Helper method to decode escape sequences
   String _decodeEscapeSequences(String text) {
-    // Handle \x escape sequences (both single and double backslash)
-    String result = text;
+    // Handle \x escape sequences - these are UTF-8 bytes that need to be reconstructed
     
-    // First try to decode \\x sequences (double backslash from JSON)
-    result = result.replaceAllMapped(
-      RegExp(r'\\x([0-9A-Fa-f]{2})'),
-      (match) {
-        final hex = match.group(1)!;
-        final codeUnit = int.parse(hex, radix: 16);
-        return String.fromCharCode(codeUnit);
-      },
-    );
+    // Find all \x sequences and collect them as bytes
+    final List<int> bytes = [];
+    final regex = RegExp(r'\\x([0-9A-Fa-f]{2})');
     
-    // Then try to decode \x sequences (single backslash)
-    result = result.replaceAllMapped(
-      RegExp(r'\x([0-9A-Fa-f]{2})'),
-      (match) {
-        final hex = match.group(1)!;
-        final codeUnit = int.parse(hex, radix: 16);
-        return String.fromCharCode(codeUnit);
-      },
-    );
+    int lastEnd = 0;
+    for (final match in regex.allMatches(text)) {
+      // Add any text before this match
+      if (match.start > lastEnd) {
+        bytes.addAll(text.substring(lastEnd, match.start).codeUnits);
+      }
+      
+      // Add the hex byte
+      final hex = match.group(1)!;
+      final byte = int.parse(hex, radix: 16);
+      bytes.add(byte);
+      
+      lastEnd = match.end;
+    }
     
-    return result;
+    // Add any remaining text
+    if (lastEnd < text.length) {
+      bytes.addAll(text.substring(lastEnd).codeUnits);
+    }
+    
+    // Convert bytes to UTF-8 string
+    try {
+      return utf8.decode(bytes);
+    } catch (e) {
+      // If UTF-8 decoding fails, return original text
+      return text;
+    }
   }
 
   Map<String, String> get _headers {
@@ -130,7 +139,7 @@ class ApiService {
   Future<User> getUser(String userId) async {
     try {
       final response = await _client.get(
-        Uri.parse('$baseUrl/users/$userId'),
+        Uri.parse('$baseUrl/users/me'),
         headers: _headers,
       );
 

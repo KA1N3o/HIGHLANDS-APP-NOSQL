@@ -32,6 +32,14 @@ class HBaseDockerAdapter {
       process.stdout.on('data', (data) => {
         stdout += data.toString();
       });
+      
+      process.on('close', (code) => {
+        if (code !== 0 && !stdout) {
+          reject(new Error(`HBase command failed with code ${code}: ${stderr}`));
+        } else {
+          resolve(stdout);
+        }
+      });
 
       process.stderr.on('data', (data) => {
         stderr += data.toString();
@@ -182,8 +190,13 @@ class HBaseDockerAdapter {
     const lines = output.split('\n');
     
     lines.forEach(line => {
-      // Format: "column=family:qualifier, timestamp=xxx, value=yyy"
-      const columnMatch = line.match(/column=(\w+):(\w+).*value=(.+)/);
+      // Format: "family:qualifier timestamp=xxx, value=yyy"
+      // Skip the header line that contains "COLUMN  CELL"
+      if (line.includes('COLUMN') && line.includes('CELL')) {
+        return;
+      }
+      
+      const columnMatch = line.match(/^\s*(\w+):(\w+)\s+timestamp=\d+,\s+value=(.+)$/);
       if (columnMatch) {
         const [, family, qualifier, value] = columnMatch;
         
@@ -208,10 +221,27 @@ class HBaseDockerAdapter {
     let currentRow = null;
     
     lines.forEach(line => {
-      // Row key line format: " rowkey"
-      const rowMatch = line.match(/^\s+(\S+)\s+column=/);
+      // Skip the header line that contains "ROW  COLUMN+CELL"
+      if (line.includes('ROW') && line.includes('COLUMN+CELL')) {
+        return;
+      }
+      
+      // Skip lines that contain row count info
+      if (line.includes('row(s) in')) {
+        return;
+      }
+      
+      // Skip empty lines
+      if (!line.trim()) {
+        return;
+      }
+      
+      // Row key line format: "rowkey column=family:qualifier, timestamp=xxx, value=yyy"
+      const rowMatch = line.match(/^\s*(\S+)\s+column=(\w+):(\w+),\s+timestamp=\d+,\s+value=(.+)$/);
       if (rowMatch) {
-        const rowKey = rowMatch[1];
+        const [, rowKey, family, qualifier, value] = rowMatch;
+        
+        // Check if we need to start a new row
         if (!currentRow || currentRow.id !== rowKey) {
           if (currentRow) {
             rows.push(currentRow);
@@ -221,12 +251,6 @@ class HBaseDockerAdapter {
             data: {}
           };
         }
-      }
-      
-      // Column line format: "column=family:qualifier, timestamp=xxx, value=yyy"
-      const columnMatch = line.match(/column=(\w+):(\w+).*value=(.+)/);
-      if (columnMatch && currentRow) {
-        const [, family, qualifier, value] = columnMatch;
         
         if (!currentRow.data[family]) {
           currentRow.data[family] = {};

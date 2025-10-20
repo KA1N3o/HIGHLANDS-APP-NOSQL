@@ -34,7 +34,7 @@ class Store {
       openTime: json['openTime'] as String,
       closeTime: json['closeTime'] as String,
       isOpen: json['isOpen'] as bool? ?? true,
-      imageUrl: json['imageUrl'] as String,
+      imageUrl: json['imageUrl'] as String? ?? '', // Handle null imageUrl
     );
   }
 

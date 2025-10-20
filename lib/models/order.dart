@@ -69,12 +69,19 @@ class Order {
   }
 
   Map<String, dynamic> toJson() {
+    // Validate all items have valid productId
+    for (final item in items) {
+      if (item.product.id.isEmpty) {
+        throw Exception('Product ID cannot be empty for item: ${item.product.name}');
+      }
+    }
+    
     return {
       'id': id,
       'userId': userId,
       'storeId': store.id, // Send storeId instead of full store object
       'items': items.map((e) => {
-        'productId': e.product.id,
+        'productId': e.product.id, // Ensure product.id is not null
         'quantity': e.quantity,
         'size': e.size,
         'options': e.selectedOptions,

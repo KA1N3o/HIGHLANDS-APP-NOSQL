@@ -12,11 +12,13 @@ class ProductService {
     const [rows] = await productsTable.getRows();
 
     let products = rows.map((row) => {
-      const data = parseRowData(row);
+      const data = parseRowData(row.data || row);
       
-      // Debug: Check what parseRowData returned
-      console.log('DEBUG: data.sizes type:', typeof data.sizes);
-      console.log('DEBUG: data.sizes value:', data.sizes);
+      // Skip products without required fields
+      if (!data.name) {
+        console.warn(`Skipping product with ID ${row.id} due to missing name`);
+        return null;
+      }
       
       // Parse JSON fields (parseRowData already parsed JSON, so check if it's already parsed)
       let sizes = [];
@@ -46,21 +48,23 @@ class ProductService {
         options = [];
       }
 
+      const isAvailable = (data.isAvailable === true) || (String(data.isAvailable).toLowerCase() === 'true');
+
       return {
         id: row.id,
         name: data.name,
-        description: data.description,
-        price: parseFloat(data.price),
-        imageUrl: data.imageUrl,
-        category: data.category,
-        isAvailable: data.isAvailable === 'true',
+        description: data.description || '',
+        price: parseFloat(data.price) || 0,
+        imageUrl: data.imageUrl || '',
+        category: data.category || 'other',
+        isAvailable,
         preparationTime: parseInt(data.preparationTime) || 10,
         sizes,
         options,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
+        createdAt: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString(),
       };
-    });
+    }).filter(product => product !== null);
 
     if (availableOnly) {
       products = products.filter(p => p.isAvailable);
@@ -82,7 +86,15 @@ class ProductService {
       throw new Error('Product not found');
     }
 
-    const productData = parseRowData(data);
+    const productData = parseRowData(data.data || data);
+    
+    // Debug: Log parsed data
+    console.log(`DEBUG: Parsed product data for ${productId}:`, JSON.stringify(productData, null, 2));
+    
+    // Validate required fields
+    if (!productData.name) {
+      throw new Error(`Product with ID ${productId} has invalid data (missing name)`);
+    }
     
     // Parse JSON fields (parseRowData already parsed JSON, so check if it's already parsed)
     let sizes = [];
@@ -112,19 +124,21 @@ class ProductService {
       options = [];
     }
 
+    const isAvailable = (productData.isAvailable === true) || (String(productData.isAvailable).toLowerCase() === 'true');
+
     return {
       id: productId,
       name: productData.name,
-      description: productData.description,
-      price: parseFloat(productData.price),
-      imageUrl: productData.imageUrl,
-      category: productData.category,
-      isAvailable: productData.isAvailable === 'true',
+      description: productData.description || '',
+      price: parseFloat(productData.price) || 0,
+      imageUrl: productData.imageUrl || '',
+      category: productData.category || 'other',
+      isAvailable,
       preparationTime: parseInt(productData.preparationTime) || 10,
       sizes,
       options,
-      createdAt: productData.createdAt,
-      updatedAt: productData.updatedAt,
+      createdAt: productData.createdAt || new Date().toISOString(),
+      updatedAt: productData.updatedAt || new Date().toISOString(),
     };
   }
 

@@ -23,7 +23,7 @@ class AuthService {
 
     const [rows] = existingUsers;
     const userExists = rows.some((row) => {
-      const data = parseRowData(row);
+      const data = parseRowData(row.data || row);
       return data.email === email;
     });
 
@@ -86,7 +86,7 @@ class AuthService {
     let userData = null;
 
     for (const row of rows) {
-      const data = parseRowData(row);
+      const data = parseRowData(row.data || row);
       if (data.email === email) {
         userRow = row;
         userData = data;

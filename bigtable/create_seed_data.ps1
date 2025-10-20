@@ -142,3 +142,5 @@ $hbaseCommands | Out-File -FilePath "hbase_seed_data.txt" -Encoding UTF8
 Write-Host "HBase seed data file created!" -ForegroundColor Green
 Write-Host "Run: hbase shell < hbase_seed_data.txt" -ForegroundColor Yellow
 
+
+

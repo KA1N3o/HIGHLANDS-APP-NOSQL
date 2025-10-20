@@ -17,16 +17,47 @@ class OrderService {
    */
   async createOrder(userId, orderData) {
     const { storeId, items, paymentMethod, notes, deliveryAddress, promotionCode } = orderData;
-
+    
     // Validate store exists
-    const store = await storeService.getStoreById(storeId);
+    console.log(`DEBUG: Validating store with ID: ${storeId}`);
+    // Validate store exists
+    let store;
+    try {
+      store = await storeService.getStoreById(storeId);
+    } catch (error) {
+      throw new Error(`Store with ID ${storeId} not found`);
+    }
+
+    // Validate items array
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('Order must contain at least one item');
+    }
 
     // Calculate totals
     let subtotal = 0;
     const orderItems = [];
 
     for (const item of items) {
-      const product = await productService.getProductById(item.productId);
+      // Validate productId exists
+      if (!item.productId) {
+        throw new Error('Product ID is required for all items');
+      }
+      
+      let product;
+      try {
+        product = await productService.getProductById(item.productId);
+      } catch (error) {
+        throw new Error(`Product with ID ${item.productId} not found`);
+      }
+      
+      if (!product) {
+        throw new Error(`Product with ID ${item.productId} not found`);
+      }
+      
+      // Check if product name exists
+      if (!product.name) {
+        throw new Error(`Product with ID ${item.productId} has invalid data (missing name)`);
+      }
       
       if (!product.isAvailable) {
         throw new Error(`Product ${product.name} is not available`);

@@ -1,17 +1,13 @@
-#!/bin/bash
+# Highlands Coffee - PowerShell Script to Seed Extended Products
+# This script adds the extended product list to HBase
 
-# Highlands Coffee - Extended Products Data
-# Script thêm dữ liệu sản phẩm mở rộng vào HBase
+Write-Host "=========================================" -ForegroundColor Green
+Write-Host "Seeding Extended Products to HBase" -ForegroundColor Green
+Write-Host "=========================================" -ForegroundColor Green
+Write-Host ""
 
-set -e
-
-echo "========================================="
-echo "Thêm sản phẩm mở rộng vào HBase"
-echo "========================================="
-echo ""
-
-# Tạo file HBase commands với dữ liệu mở rộng
-cat > /tmp/hbase_products_extended.txt << 'EOF'
+# Create HBase commands for extended products
+$hbaseCommands = @"
 # ==================== CÀ PHÊ TRUYỀN THỐNG ====================
 put 'products', 'product#cf001', 'info:name', 'Phin Sữa Đá'
 put 'products', 'product#cf001', 'info:description', 'Cà phê phin truyền thống Việt Nam pha với sữa đặc thơm ngon'
@@ -244,13 +240,6 @@ put 'products', 'product#frz005', 'info:updatedAt', '2024-01-01T00:00:00Z'
 put 'products', 'product#frz005', 'options:sizes', '["Vừa","Lớn"]'
 put 'products', 'product#frz005', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Chocolate Chips"]}]'
 
-EOF
-
-echo "Đang thêm sản phẩm vào HBase..."
-hbase shell /tmp/hbase_products_extended.txt
-
-# Tiếp tục với TRÀ
-cat > /tmp/hbase_tea_products.txt << 'EOF'
 # ==================== TRÀ (TEA) ====================
 put 'products', 'product#tea001', 'info:name', 'Trà Sen Vàng'
 put 'products', 'product#tea001', 'info:description', 'Trà Ô Long hảo hạng kết hợp với hương sen tinh tế'
@@ -359,38 +348,45 @@ put 'products', 'product#tea009', 'info:createdAt', '2024-01-01T00:00:00Z'
 put 'products', 'product#tea009', 'info:updatedAt', '2024-01-01T00:00:00Z'
 put 'products', 'product#tea009', 'options:sizes', '["Vừa","Lớn"]'
 put 'products', 'product#tea009', 'options:options', '[{"name":"Đường","choices":["Ít đường","Vừa","Nhiều đường"]},{"name":"Topping","choices":["Không","Trân châu","Thạch trái cây"]}]'
+"@
 
-EOF
+# Save commands to file
+$tempFile = "hbase_extended_products.txt"
+$hbaseCommands | Out-File -FilePath $tempFile -Encoding UTF8
 
-echo "Đang thêm trà vào HBase..."
-hbase shell /tmp/hbase_tea_products.txt
+Write-Host "✓ Created HBase commands file: $tempFile" -ForegroundColor Green
+Write-Host ""
 
-# Continue...
-echo "✓ Đã thêm xong phần 1 (Coffee + Tea)"
+# Check if HBase is available
+try {
+    $hbaseVersion = hbase version 2>$null
+    if ($hbaseVersion) {
+        Write-Host "✓ HBase is available" -ForegroundColor Green
+        Write-Host ""
+        
+        # Run HBase shell with the commands file
+        Write-Host "Seeding extended products to HBase..." -ForegroundColor Yellow
+        hbase shell $tempFile
+        
+        Write-Host ""
+        Write-Host "✓ Extended products seeded successfully!" -ForegroundColor Green
+    } else {
+        Write-Host "✗ HBase is not available. Please make sure HBase is installed and in PATH." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "You can manually run these commands by:" -ForegroundColor Yellow
+        Write-Host "1. Starting HBase shell: hbase shell" -ForegroundColor Cyan
+        Write-Host "2. Copy-pasting the commands from $tempFile" -ForegroundColor Cyan
+    }
+} catch {
+    Write-Host "✗ Error checking HBase: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "You can manually run these commands by:" -ForegroundColor Yellow
+    Write-Host "1. Starting HBase shell: hbase shell" -ForegroundColor Cyan
+    Write-Host "2. Copy-pasting the commands from $tempFile" -ForegroundColor Cyan
+}
 
-# Xóa file tạm
-rm /tmp/hbase_products_extended.txt
-rm /tmp/hbase_tea_products.txt
-
-echo ""
-echo "========================================="
-echo "✅ Hoàn tất thêm sản phẩm mở rộng!"
-echo "========================================="
-echo ""
-echo "Đã thêm:"
-echo "  ✓ Cà phê truyền thống: 3 sản phẩm"
-echo "  ✓ Espresso: 5 sản phẩm"
-echo "  ✓ PhinDi đặc biệt: 6 sản phẩm"
-echo "  ✓ Freeze (đá xay): 5 sản phẩm"
-echo "  ✓ Trà: 9 sản phẩm"
-echo ""
-echo "Tổng cộng: 28 sản phẩm thức uống"
-echo ""
-echo "Tiếp tục chạy seed_food_products.sh để thêm đồ ăn..."
-echo ""
-
-
-
-
-
-
+Write-Host ""
+Write-Host "=========================================" -ForegroundColor Green
+Write-Host "Extended products seeding completed!" -ForegroundColor Green
+Write-Host "=========================================" -ForegroundColor Green
+Write-Host ""

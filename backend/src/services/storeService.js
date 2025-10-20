@@ -104,6 +104,57 @@ class StoreService {
   toRadians(degrees) {
     return degrees * (Math.PI / 180);
   }
+
+  /**
+   * Update store
+   */
+  async updateStore(storeId, updates) {
+    const storesTable = tables.stores;
+    const row = storesTable.row(storeId);
+    
+    // Get current store data by reading the specific row
+    const [rows] = await row.get();
+    
+    if (!rows || rows.length === 0) {
+      throw new Error('Store not found');
+    }
+    
+    const currentData = parseRowData(rows[0]);
+    
+    // Merge updates with current data
+    const updatedData = {
+      ...currentData,
+      ...updates,
+    };
+    
+    // Create mutations for updated fields
+    const mutations = [];
+    Object.keys(updates).forEach(key => {
+      mutations.push({
+        method: 'insert',
+        data: {
+          columnFamily: 'info',
+          column: key,
+          value: String(updatedData[key]),
+        },
+      });
+    });
+    
+    await row.save(mutations);
+    
+    return {
+      id: storeId,
+      name: updatedData.name,
+      address: updatedData.address,
+      latitude: parseFloat(updatedData.latitude),
+      longitude: parseFloat(updatedData.longitude),
+      phone: updatedData.phone,
+      imageUrl: updatedData.imageUrl,
+      isOpen: updatedData.isOpen === 'true' || updatedData.isOpen === true,
+      openTime: updatedData.openTime,
+      closeTime: updatedData.closeTime,
+    };
+  }
 }
 
 module.exports = new StoreService();

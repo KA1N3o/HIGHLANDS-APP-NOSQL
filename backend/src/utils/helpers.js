@@ -13,25 +13,36 @@ function getReversedTimestamp() {
 function parseRowData(row) {
   const data = {};
   
-  if (!row || !row.data) {
+  if (!row) {
     return data;
   }
 
-  for (const [family, columns] of Object.entries(row.data)) {
+  // Process the row data directly (HBase Docker adapter format)
+  for (const [family, columns] of Object.entries(row)) {
     for (const [column, cells] of Object.entries(columns)) {
       // Get the latest cell value
       if (cells && cells.length > 0) {
-        const cellValue = cells[0].value;
-        const key = `${family}:${column}`;
+        // Handle different cell formats
+        let cellValue;
+        if (Array.isArray(cells) && cells.length > 0) {
+          // HBase Docker adapter format: array of objects with value property
+          cellValue = cells[0].value;
+        } else if (cells.value !== undefined) {
+          // Direct object format
+          cellValue = cells.value;
+        } else {
+          // Unknown format
+          cellValue = cells;
+        }
         
         // Try to parse JSON, otherwise use as string
         try {
           // Ensure proper UTF-8 decoding
-          const stringValue = cellValue.toString('utf8');
+          const stringValue = cellValue.toString();
           data[column] = JSON.parse(stringValue);
         } catch {
           // Ensure proper UTF-8 decoding for string values
-          data[column] = cellValue.toString('utf8');
+          data[column] = cellValue.toString();
         }
       }
     }
