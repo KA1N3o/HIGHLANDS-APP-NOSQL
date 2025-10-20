@@ -1,6 +1,7 @@
 const { exec, spawn } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+const iconv = require('iconv-lite');
 
 /**
  * HBase Docker Adapter - Sử dụng HBase shell commands qua Docker
@@ -30,19 +31,11 @@ class HBaseDockerAdapter {
       let stderr = '';
 
       process.stdout.on('data', (data) => {
-        stdout += data.toString();
+        stdout += data.toString('utf8');
       });
       
-      process.on('close', (code) => {
-        if (code !== 0 && !stdout) {
-          reject(new Error(`HBase command failed with code ${code}: ${stderr}`));
-        } else {
-          resolve(stdout);
-        }
-      });
-
       process.stderr.on('data', (data) => {
-        stderr += data.toString();
+        stderr += data.toString('utf8');
       });
 
       process.on('close', (code) => {
@@ -204,8 +197,11 @@ class HBaseDockerAdapter {
           data[family] = {};
         }
         
+        // Properly decode UTF-8 values
+        const decodedValue = this.decodeUTF8Value(value.trim());
+        
         data[family][qualifier] = [{
-          value: value.trim(),
+          value: decodedValue,
           timestamp: Date.now()
         }];
       }
@@ -256,8 +252,11 @@ class HBaseDockerAdapter {
           currentRow.data[family] = {};
         }
         
+        // Properly decode UTF-8 values
+        const decodedValue = this.decodeUTF8Value(value.trim());
+        
         currentRow.data[family][qualifier] = [{
-          value: value.trim(),
+          value: decodedValue,
           timestamp: Date.now()
         }];
       }
@@ -268,6 +267,26 @@ class HBaseDockerAdapter {
     }
     
     return rows;
+  }
+
+  // Helper function to decode UTF-8 values
+  decodeUTF8Value(value) {
+    try {
+      // Handle escaped Unicode sequences
+      let decodedValue = value.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+        return String.fromCharCode(parseInt(hex, 16));
+      });
+      
+      // Handle double escaped sequences
+      decodedValue = decodedValue.replace(/\\\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+        return String.fromCharCode(parseInt(hex, 16));
+      });
+      
+      return decodedValue;
+    } catch (error) {
+      console.warn('Error decoding UTF-8 value:', error.message);
+      return value;
+    }
   }
 
   // Create PUT commands from Bigtable-style data
@@ -334,4 +353,3 @@ module.exports = {
   instance,
   tables,
 };
-

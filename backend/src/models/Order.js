@@ -1,10 +1,11 @@
 const { v4: uuidv4 } = require('uuid');
+const { parseRowData, decodeEscapedUTF8 } = require('../utils/helpers');
 
 class Order {
   constructor(data) {
     this.id = data.id || `order#${uuidv4()}`;
-    this.userId = data.userId;
-    this.storeId = data.storeId;
+    this.userId = data.userId || '';
+    this.storeId = data.storeId || '';
     this.items = data.items || [];
     this.subtotal = data.subtotal || 0;
     this.tax = data.tax || 0;
@@ -30,60 +31,70 @@ class Order {
 
   toJSON() {
     return {
-      id: this.id,
-      userId: this.userId,
-      storeId: this.storeId,
-      items: this.items,
-      subtotal: this.subtotal,
-      tax: this.tax,
-      deliveryFee: this.deliveryFee,
-      discount: this.discount,
-      total: this.total,
-      status: this.status,
-      paymentMethod: this.paymentMethod,
-      paymentStatus: this.paymentStatus,
-      deliveryAddress: this.deliveryAddress,
-      notes: this.notes,
-      orderTime: this.orderTime,
-      confirmedTime: this.confirmedTime,
-      completedTime: this.completedTime,
-      cancelledTime: this.cancelledTime,
-      cancelReason: this.cancelReason,
-      promotionCode: this.promotionCode,
+      id: this.id || '',
+      userId: this.userId || '',
+      storeId: this.storeId || '',
+      items: this.items || [],
+      subtotal: this.subtotal || 0,
+      tax: this.tax || 0,
+      deliveryFee: this.deliveryFee || 0,
+      discount: this.discount || 0,
+      total: this.total || 0,
+      status: this.status || 'pending',
+      paymentMethod: this.paymentMethod || 'COD',
+      paymentStatus: this.paymentStatus || 'pending',
+      deliveryAddress: this.deliveryAddress || {},
+      notes: this.notes || '',
+      orderTime: this.orderTime || new Date().toISOString(),
+      confirmedTime: this.confirmedTime || null,
+      completedTime: this.completedTime || null,
+      cancelledTime: this.cancelledTime || null,
+      cancelReason: this.cancelReason || null,
+      promotionCode: this.promotionCode || null,
     };
   }
 
   static fromBigtableRow(row, rowData) {
+    // Use parseRowData helper to ensure proper UTF-8 decoding
+    const parsedData = parseRowData(rowData);
+    
     const items = [];
     
     // Parse items from Bigtable
-    Object.keys(rowData).forEach(key => {
+    Object.keys(parsedData).forEach(key => {
       if (key.startsWith('item_')) {
-        items.push(JSON.parse(rowData[key]));
+        try {
+          // Properly decode UTF-8 for item data
+          let itemValue = parsedData[key];
+          itemValue = decodeEscapedUTF8(itemValue);
+          items.push(JSON.parse(itemValue || '{}'));
+        } catch (error) {
+          console.error(`Error parsing item ${key}:`, error);
+        }
       }
     });
 
     return new Order({
-      id: row.id,
-      userId: rowData.userId,
-      storeId: rowData.storeId,
-      items,
-      subtotal: parseFloat(rowData.subtotal) || 0,
-      tax: parseFloat(rowData.tax) || 0,
-      deliveryFee: parseFloat(rowData.deliveryFee) || 0,
-      discount: parseFloat(rowData.discount) || 0,
-      total: parseFloat(rowData.total) || 0,
-      status: rowData.status,
-      paymentMethod: rowData.paymentMethod,
-      paymentStatus: rowData.paymentStatus,
-      deliveryAddress: rowData.deliveryAddress ? JSON.parse(rowData.deliveryAddress) : {},
-      notes: rowData.notes,
-      orderTime: rowData.orderTime,
-      confirmedTime: rowData.confirmedTime,
-      completedTime: rowData.completedTime,
-      cancelledTime: rowData.cancelledTime,
-      cancelReason: rowData.cancelReason,
-      promotionCode: rowData.promotionCode,
+      id: row.id || '',
+      userId: decodeEscapedUTF8(parsedData.userId) || '',
+      storeId: decodeEscapedUTF8(parsedData.storeId) || '',
+      items: items,
+      subtotal: parseFloat(parsedData.subtotal) || 0,
+      tax: parseFloat(parsedData.tax) || 0,
+      deliveryFee: parseFloat(parsedData.deliveryFee) || 0,
+      discount: parseFloat(parsedData.discount) || 0,
+      total: parseFloat(parsedData.total) || 0,
+      status: parsedData.status || 'pending',
+      paymentMethod: parsedData.paymentMethod || 'COD',
+      paymentStatus: parsedData.paymentStatus || 'pending',
+      deliveryAddress: parsedData.deliveryAddress ? JSON.parse(parsedData.deliveryAddress || '{}') : {},
+      notes: decodeEscapedUTF8(parsedData.notes) || '',
+      orderTime: parsedData.orderTime || new Date().toISOString(),
+      confirmedTime: parsedData.confirmedTime || null,
+      completedTime: parsedData.completedTime || null,
+      cancelledTime: parsedData.cancelledTime || null,
+      cancelReason: parsedData.cancelReason || null,
+      promotionCode: parsedData.promotionCode || null,
     });
   }
 
@@ -96,9 +107,3 @@ class Order {
 }
 
 module.exports = Order;
-
-
-
-
-
-

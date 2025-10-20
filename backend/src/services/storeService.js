@@ -11,19 +11,26 @@ class StoreService {
     const [rows] = await storesTable.getRows();
 
     return rows.map((row) => {
-      const data = parseRowData(row);
+      const data = parseRowData(row.data || row);
+      
+      // Handle case where openTime/closeTime might be in 'hours' column family
+      const openTime = data.openTime || data.hours?.openTime || '08:00';
+      const closeTime = data.closeTime || data.hours?.closeTime || '22:00';
+      
+      // Determine if store is currently open based on hours
+      const isOpen = this.isStoreOpen(openTime, closeTime);
       
       return {
         id: row.id,
-        name: data.name,
-        address: data.address,
-        latitude: parseFloat(data.latitude),
-        longitude: parseFloat(data.longitude),
-        phone: data.phone,
-        imageUrl: data.imageUrl,
-        isOpen: data.isOpen === 'true',
-        openTime: data.openTime,
-        closeTime: data.closeTime,
+        name: data.name || 'Unknown Store',
+        address: data.address || 'Unknown Address',
+        latitude: parseFloat(data.latitude) || 0.0,
+        longitude: parseFloat(data.longitude) || 0.0,
+        phone: data.phone || '',
+        imageUrl: data.imageUrl || '',
+        isOpen: isOpen,
+        openTime: openTime,
+        closeTime: closeTime,
       };
     });
   }
@@ -41,20 +48,50 @@ class StoreService {
       throw new Error('Store not found');
     }
 
-    const storeData = parseRowData(data);
+    const storeData = parseRowData(data.data || data);
+    
+    // Handle case where openTime/closeTime might be in 'hours' column family
+    const openTime = storeData.openTime || storeData.hours?.openTime || '08:00';
+    const closeTime = storeData.closeTime || storeData.hours?.closeTime || '22:00';
+
+    // Determine if store is currently open based on hours
+    const isOpen = this.isStoreOpen(openTime, closeTime);
 
     return {
       id: storeId,
-      name: storeData.name,
-      address: storeData.address,
-      latitude: parseFloat(storeData.latitude),
-      longitude: parseFloat(storeData.longitude),
-      phone: storeData.phone,
-      imageUrl: storeData.imageUrl,
-      isOpen: storeData.isOpen === 'true',
-      openTime: storeData.openTime,
-      closeTime: storeData.closeTime,
+      name: storeData.name || 'Unknown Store',
+      address: storeData.address || 'Unknown Address',
+      latitude: parseFloat(storeData.latitude) || 0.0,
+      longitude: parseFloat(storeData.longitude) || 0.0,
+      phone: storeData.phone || '',
+      imageUrl: storeData.imageUrl || '',
+      isOpen: isOpen,
+      openTime: openTime,
+      closeTime: closeTime,
     };
+  }
+
+  /**
+   * Check if store is currently open based on operating hours
+   */
+  isStoreOpen(openTime, closeTime) {
+    try {
+      const now = new Date();
+      const currentTime = now.toTimeString().substring(0, 5); // Format: "HH:MM"
+      
+      // Handle case where close time is next day (e.g., 22:00 - 02:00)
+      if (closeTime < openTime) {
+        // Store is open overnight
+        return currentTime >= openTime || currentTime < closeTime;
+      } else {
+        // Normal case
+        return currentTime >= openTime && currentTime < closeTime;
+      }
+    } catch (error) {
+      console.error('Error checking store open status:', error);
+      // Default to false if there's an error
+      return false;
+    }
   }
 
   /**
@@ -119,7 +156,7 @@ class StoreService {
       throw new Error('Store not found');
     }
     
-    const currentData = parseRowData(rows[0]);
+    const currentData = parseRowData(rows[0].data || rows[0]);
     
     // Merge updates with current data
     const updatedData = {
@@ -142,6 +179,13 @@ class StoreService {
     
     await row.save(mutations);
     
+    // Handle case where openTime/closeTime might be in 'hours' column family
+    const openTime = updatedData.openTime || updatedData.hours?.openTime || '08:00';
+    const closeTime = updatedData.closeTime || updatedData.hours?.closeTime || '22:00';
+    
+    // Determine if store is currently open based on hours
+    const isOpen = this.isStoreOpen(openTime, closeTime);
+    
     return {
       id: storeId,
       name: updatedData.name,
@@ -150,12 +194,11 @@ class StoreService {
       longitude: parseFloat(updatedData.longitude),
       phone: updatedData.phone,
       imageUrl: updatedData.imageUrl,
-      isOpen: updatedData.isOpen === 'true' || updatedData.isOpen === true,
-      openTime: updatedData.openTime,
-      closeTime: updatedData.closeTime,
+      isOpen: isOpen,
+      openTime: openTime,
+      closeTime: closeTime,
     };
   }
 }
 
 module.exports = new StoreService();
-

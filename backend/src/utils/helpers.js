@@ -1,3 +1,5 @@
+const iconv = require('iconv-lite');
+
 /**
  * Convert a timestamp to reversed timestamp for Bigtable row keys
  * This allows for efficient time-range queries (most recent first)
@@ -37,18 +39,52 @@ function parseRowData(row) {
         
         // Try to parse JSON, otherwise use as string
         try {
-          // Ensure proper UTF-8 decoding
+          // Ensure proper UTF-8 decoding for JSON strings
           const stringValue = cellValue.toString();
-          data[column] = JSON.parse(stringValue);
+          // Properly decode escaped Unicode sequences using iconv-lite
+          const decodedString = decodeEscapedUTF8(stringValue);
+          data[column] = JSON.parse(decodedString);
         } catch {
           // Ensure proper UTF-8 decoding for string values
-          data[column] = cellValue.toString();
+          const stringValue = cellValue.toString();
+          // Properly decode escaped Unicode sequences using iconv-lite
+          data[column] = decodeEscapedUTF8(stringValue);
         }
       }
     }
   }
 
   return data;
+}
+
+/**
+ * Decode escaped UTF-8 sequences
+ */
+function decodeEscapedUTF8(str) {
+  if (typeof str !== 'string') {
+    return str;
+  }
+  
+  try {
+    // First, handle double escaped sequences (\\xXX -> \xXX)
+    let decoded = str.replace(/\\\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+      const charCode = parseInt(hex, 16);
+      return String.fromCharCode(charCode);
+    });
+    
+    // Then, handle single escaped sequences (\xXX -> actual character)
+    decoded = decoded.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+      const charCode = parseInt(hex, 16);
+      return String.fromCharCode(charCode);
+    });
+    
+    // Use iconv-lite to properly decode UTF-8
+    const buffer = Buffer.from(decoded, 'binary');
+    return iconv.decode(buffer, 'utf8');
+  } catch (error) {
+    console.warn('Error decoding UTF-8 string:', error.message);
+    return str;
+  }
 }
 
 /**
@@ -122,5 +158,5 @@ module.exports = {
   calculateTax,
   errorResponse,
   successResponse,
+  decodeEscapedUTF8
 };
-

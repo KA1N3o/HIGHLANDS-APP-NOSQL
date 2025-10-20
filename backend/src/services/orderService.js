@@ -18,9 +18,17 @@ class OrderService {
   async createOrder(userId, orderData) {
     const { storeId, items, paymentMethod, notes, deliveryAddress, promotionCode } = orderData;
     
+    // Validate required fields
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+    
+    if (!storeId) {
+      throw new Error('Store ID is required');
+    }
+    
     // Validate store exists
     console.log(`DEBUG: Validating store with ID: ${storeId}`);
-    // Validate store exists
     let store;
     try {
       store = await storeService.getStoreById(storeId);
@@ -63,14 +71,14 @@ class OrderService {
         throw new Error(`Product ${product.name} is not available`);
       }
 
-      const itemTotal = product.price * item.quantity;
+      const itemTotal = (product.price || 0) * (item.quantity || 0);
       subtotal += itemTotal;
 
       orderItems.push({
-        productId: item.productId,
-        name: product.name,
-        price: product.price,
-        quantity: item.quantity,
+        productId: item.productId || '',
+        name: product.name || 'Unknown Product',
+        price: product.price || 0,
+        quantity: item.quantity || 0,
         size: item.size || 'Medium',
         options: item.options || [],
         total: itemTotal,
@@ -108,9 +116,9 @@ class OrderService {
     const row = ordersTable.row(rowKey);
 
     const infoMutations = createMutations('info', {
-      userId,
-      storeId,
-      orderTime,
+      userId: userId || '',
+      storeId: storeId || '',
+      orderTime: orderTime || '',
       status: 'pending',
       notes: notes || '',
       deliveryAddress: JSON.stringify(deliveryAddress || {}),
@@ -118,7 +126,7 @@ class OrderService {
     });
 
     const paymentMutations = createMutations('payment', {
-      method: paymentMethod,
+      method: paymentMethod || 'cash',
       status: 'pending',
       subtotal: String(subtotal),
       tax: String(tax),
@@ -155,35 +163,49 @@ class OrderService {
     // Create delivery record
     if (deliveryAddress) {
       await deliveryService.createDelivery({
-        orderId,
-        deliveryAddress,
+        orderId: orderId || '',
+        deliveryAddress: deliveryAddress || {},
         pickupAddress: {
-          name: store.name,
-          address: store.address,
-          lat: store.latitude,
-          lng: store.longitude,
+          name: store.name || 'Unknown Store',
+          address: store.address || 'Unknown Address',
+          lat: store.latitude || 0,
+          lng: store.longitude || 0,
         },
         status: 'pending',
       });
     }
 
     return {
-      id: orderId,
-      userId,
-      store,
-      items: orderItems,
-      subtotal,
-      tax,
-      deliveryFee,
-      discount,
-      total,
+      id: orderId || '',
+      userId: userId || '',
+      store: {
+        id: store.id || storeId || '',
+        name: store.name || 'Unknown Store',
+        address: store.address || 'Unknown Address',
+        latitude: store.latitude || 0,
+        longitude: store.longitude || 0,
+        phone: store.phone || '',
+        imageUrl: store.imageUrl || '',
+        isOpen: store.isOpen || false,
+        openTime: store.openTime || '08:00',
+        closeTime: store.closeTime || '22:00',
+      },
+      items: orderItems.map(item => ({
+        ...item,
+        notes: ''  // Ensure notes is always a string
+      })),
+      subtotal: subtotal,
+      tax: tax,
+      deliveryFee: deliveryFee,
+      discount: discount,
+      total: total,
       status: 'pending',
-      paymentMethod,
+      paymentMethod: paymentMethod || 'cash',
       paymentStatus: 'pending',
-      deliveryAddress,
-      orderTime,
-      notes: notes || null,
-      promotionCode: promotionCode || null,
+      deliveryAddress: deliveryAddress ? JSON.stringify(deliveryAddress) : '{}',
+      orderTime: orderTime,
+      notes: notes || '',
+      promotionCode: promotionCode || '',
     };
   }
 
@@ -228,12 +250,21 @@ class OrderService {
     // Find order by partial key match
     const [rows] = await ordersTable.getRows();
     
-    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+    console.log(`DEBUG: Searching for order with ID: ${orderId}`);
+    console.log(`DEBUG: Found ${rows.length} total order rows`);
+    
+    const orderRow = rows.find((row) => {
+      const matches = row.id.endsWith(`#${orderId}`);
+      console.log(`DEBUG: Checking row ${row.id} - matches: ${matches}`);
+      return matches;
+    });
 
     if (!orderRow) {
+      console.log(`DEBUG: Order not found for ID: ${orderId}`);
       throw new Error('Order not found');
     }
 
+    console.log(`DEBUG: Found order row:`, JSON.stringify(orderRow, null, 2));
     return this.parseOrderData(orderRow.id, orderRow);
   }
 
@@ -358,7 +389,9 @@ class OrderService {
    * Parse order data from Bigtable row
    */
   async parseOrderData(rowKey, rowData) {
-    const data = parseRowData(rowData);
+    console.log(`DEBUG: Parsing order data for rowKey: ${rowKey}`);
+    const data = parseRowData(rowData.data || rowData);
+    console.log(`DEBUG: Parsed row data:`, JSON.stringify(data, null, 2));
 
     // Extract order ID from row key
     const orderId = rowKey.split('#').pop();
@@ -368,8 +401,45 @@ class OrderService {
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('item_')) {
         try {
-          items.push(JSON.parse(value));
-        } catch {
+          console.log(`DEBUG: Parsing item ${key}: ${value}`);
+          // Handle escaped characters properly
+          let cleanValue = value;
+          // First decode any escaped sequences
+          if (typeof value === 'string') {
+            // Handle hex escape sequences
+            cleanValue = value.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+              return String.fromCharCode(parseInt(hex, 16));
+            });
+            // Handle double escaped sequences
+            cleanValue = cleanValue.replace(/\\\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+              return String.fromCharCode(parseInt(hex, 16));
+            });
+          }
+          const itemData = JSON.parse(cleanValue);
+          console.log(`DEBUG: Parsed item data:`, JSON.stringify(itemData, null, 2));
+          // Convert to format expected by Flutter app
+          const cartItem = {
+            product: {
+              id: itemData.productId || '',
+              name: itemData.name || 'Unknown Product',
+              description: '', // Description not stored in order items
+              price: itemData.price || 0,
+              imageUrl: '', // Image URL not stored in order items
+              category: 'coffee', // Category not stored in order items
+              sizes: [], // Sizes not stored in order items
+              options: [], // Options not stored in order items
+              isAvailable: true, // Availability not stored in order items
+              preparationTime: 10 // Preparation time not stored in order items
+            },
+            size: itemData.size || 'Medium',
+            selectedOptions: {}, // Selected options not stored properly
+            quantity: itemData.quantity || 0,
+            notes: itemData.notes || ''  // Ensure notes is always a string
+          };
+          console.log(`DEBUG: Converted cart item:`, JSON.stringify(cartItem, null, 2));
+          items.push(cartItem);
+        } catch (error) {
+          console.error(`DEBUG: Error parsing item ${key}:`, error.message);
           // Skip invalid items
         }
       }
@@ -378,26 +448,37 @@ class OrderService {
     // Get store data
     let store = null;
     try {
-      store = await storeService.getStoreById(data.storeId);
+      store = await storeService.getStoreById(data.storeId || '');
     } catch {
-      store = { id: data.storeId, name: 'Unknown Store' };
+      store = { 
+        id: data.storeId || 'unknown', 
+        name: 'Unknown Store',
+        address: 'Unknown Address',
+        latitude: 0,
+        longitude: 0,
+        phone: '',
+        imageUrl: '',
+        isOpen: false,
+        openTime: '08:00',
+        closeTime: '22:00'
+      };
     }
 
     return {
-      id: orderId,
-      userId: data.userId,
-      store,
-      items,
-      subtotal: parseFloat(data.subtotal),
-      tax: parseFloat(data.tax),
-      total: parseFloat(data.total),
-      status: data.status,
-      paymentMethod: data.method,
-      paymentStatus: data.status,
-      orderTime: data.orderTime,
-      pickupTime: data.pickupTime || null,
-      completedTime: data.completedTime || null,
-      notes: data.notes || null,
+      id: orderId || '',
+      userId: data.userId || '',
+      store: store,
+      items: items,
+      subtotal: parseFloat(data.subtotal) || 0,
+      tax: parseFloat(data.tax) || 0,
+      total: parseFloat(data.total) || 0,
+      status: data.status || 'pending',
+      paymentMethod: data.method || 'cash',
+      paymentStatus: data.paymentStatus || data.status || 'pending',
+      orderTime: data.orderTime || new Date().toISOString(),
+      pickupTime: data.pickupTime || '',  // Ensure pickupTime is always a string
+      completedTime: data.completedTime || '',  // Ensure completedTime is always a string
+      notes: data.notes || '',  // Ensure notes is always a string
     };
   }
 

@@ -41,16 +41,16 @@ class AuthService {
 
     // Create user row
     const profileMutations = createMutations('profile', {
-      email,
-      name,
-      phone,
+      email: email || '',
+      name: name || '',
+      phone: phone || '',
       role: email === 'admin@highlands.vn' ? 'admin' : 'customer',
-      createdAt,
+      createdAt: createdAt || '',
     });
 
     const authMutations = createMutations('auth', {
-      passwordHash,
-      salt,
+      passwordHash: passwordHash || '',
+      salt: salt || '',
     });
 
     const row = usersTable.row(userId);
@@ -62,14 +62,14 @@ class AuthService {
 
     return {
       user: {
-        id: userId,
-        email,
-        name,
-        phone,
-        role: userRole,
-        createdAt,
+        id: userId || '',
+        email: email || '',
+        name: name || '',
+        phone: phone || '',
+        role: userRole || 'customer',
+        createdAt: createdAt || new Date().toISOString(),
       },
-      token,
+      token: token || '',
     };
   }
 
@@ -99,7 +99,7 @@ class AuthService {
     }
 
     // Verify password
-    const isValidPassword = await bcrypt.compare(password, userData.passwordHash);
+    const isValidPassword = await bcrypt.compare(password, userData.passwordHash || '');
     
     if (!isValidPassword) {
       throw new Error('Invalid email or password');
@@ -117,15 +117,15 @@ class AuthService {
 
     return {
       user: {
-        id: userRow.id,
-        email: userData.email,
-        name: userData.name,
-        phone: userData.phone,
-        role: userData.role,
-        photoUrl: userData.photoUrl,
-        createdAt: userData.createdAt,
+        id: userRow.id || '',
+        email: userData.email || '',
+        name: userData.name || '',
+        phone: userData.phone || '',
+        role: userData.role || 'customer',
+        photoUrl: userData.photoUrl || null,
+        createdAt: userData.createdAt || new Date().toISOString(),
       },
-      token,
+      token: token || '',
     };
   }
 
@@ -134,7 +134,11 @@ class AuthService {
    */
   generateToken(userId, email, role) {
     return jwt.sign(
-      { userId, email, role },
+      { 
+        userId: userId || '',
+        email: email || '',
+        role: role || 'customer'
+      },
       config.jwtSecret,
       { expiresIn: config.jwtExpiresIn }
     );
@@ -144,9 +148,12 @@ class AuthService {
    * Verify JWT token
    */
   verifyToken(token) {
-    return jwt.verify(token, config.jwtSecret);
+    try {
+      return jwt.verify(token, config.jwtSecret);
+    } catch (error) {
+      throw new Error('Invalid token');
+    }
   }
 }
 
 module.exports = new AuthService();
-

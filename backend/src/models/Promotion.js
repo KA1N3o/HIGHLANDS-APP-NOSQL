@@ -1,19 +1,20 @@
 const { v4: uuidv4 } = require('uuid');
+const { parseRowData, decodeEscapedUTF8 } = require('../utils/helpers');
 
 class Promotion {
   constructor(data) {
     this.id = data.id || `promo#${uuidv4()}`;
-    this.code = data.code; // Mã khuyến mãi
-    this.name = data.name;
+    this.code = data.code || ''; // Mã khuyến mãi
+    this.name = data.name || '';
     this.description = data.description || '';
     this.type = data.type || 'percentage'; // percentage, fixed_amount, free_shipping
-    this.value = data.value; // Giá trị giảm giá (% hoặc số tiền)
+    this.value = data.value || 0; // Giá trị giảm giá (% hoặc số tiền)
     this.minOrderValue = data.minOrderValue || 0; // Giá trị đơn hàng tối thiểu
     this.maxDiscount = data.maxDiscount || null; // Giảm giá tối đa (cho type percentage)
     this.usageLimit = data.usageLimit || null; // Số lần sử dụng tối đa (null = unlimited)
     this.usageCount = data.usageCount || 0; // Số lần đã sử dụng
-    this.startDate = data.startDate;
-    this.endDate = data.endDate;
+    this.startDate = data.startDate || new Date().toISOString();
+    this.endDate = data.endDate || new Date().toISOString();
     this.isActive = data.isActive !== undefined ? data.isActive : true;
     this.createdAt = data.createdAt || new Date().toISOString();
     this.updatedAt = data.updatedAt || new Date().toISOString();
@@ -58,49 +59,46 @@ class Promotion {
 
   toJSON() {
     return {
-      id: this.id,
-      code: this.code,
-      name: this.name,
-      description: this.description,
-      type: this.type,
-      value: this.value,
-      minOrderValue: this.minOrderValue,
-      maxDiscount: this.maxDiscount,
-      usageLimit: this.usageLimit,
-      usageCount: this.usageCount,
-      startDate: this.startDate,
-      endDate: this.endDate,
-      isActive: this.isActive,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
+      id: this.id || '',
+      code: this.code || '',
+      name: this.name || '',
+      description: this.description || '',
+      type: this.type || 'percentage',
+      value: this.value || 0,
+      minOrderValue: this.minOrderValue || 0,
+      maxDiscount: this.maxDiscount || null,
+      usageLimit: this.usageLimit || null,
+      usageCount: this.usageCount || 0,
+      startDate: this.startDate || new Date().toISOString(),
+      endDate: this.endDate || new Date().toISOString(),
+      isActive: this.isActive || false,
+      createdAt: this.createdAt || new Date().toISOString(),
+      updatedAt: this.updatedAt || new Date().toISOString(),
     };
   }
 
   static fromBigtableRow(row, rowData) {
+    // Use parseRowData helper to ensure proper UTF-8 decoding
+    const parsedData = parseRowData(rowData);
+    
     return new Promotion({
-      id: row.id,
-      code: rowData.code,
-      name: rowData.name,
-      description: rowData.description,
-      type: rowData.type,
-      value: parseFloat(rowData.value),
-      minOrderValue: parseFloat(rowData.minOrderValue) || 0,
-      maxDiscount: rowData.maxDiscount ? parseFloat(rowData.maxDiscount) : null,
-      usageLimit: rowData.usageLimit ? parseInt(rowData.usageLimit) : null,
-      usageCount: parseInt(rowData.usageCount) || 0,
-      startDate: rowData.startDate,
-      endDate: rowData.endDate,
-      isActive: rowData.isActive === 'true',
-      createdAt: rowData.createdAt,
-      updatedAt: rowData.updatedAt,
+      id: row.id || '',
+      code: decodeEscapedUTF8(parsedData.code) || '',
+      name: decodeEscapedUTF8(parsedData.name) || '',
+      description: decodeEscapedUTF8(parsedData.description) || '',
+      type: parsedData.type || 'percentage',
+      value: parseFloat(parsedData.value) || 0,
+      minOrderValue: parseFloat(parsedData.minOrderValue) || 0,
+      maxDiscount: parsedData.maxDiscount ? parseFloat(parsedData.maxDiscount) : null,
+      usageLimit: parsedData.usageLimit ? parseInt(parsedData.usageLimit) : null,
+      usageCount: parseInt(parsedData.usageCount) || 0,
+      startDate: parsedData.startDate || new Date().toISOString(),
+      endDate: parsedData.endDate || new Date().toISOString(),
+      isActive: (parsedData.isActive === 'true') || (parsedData.isActive === true),
+      createdAt: parsedData.createdAt || new Date().toISOString(),
+      updatedAt: parsedData.updatedAt || new Date().toISOString(),
     });
   }
 }
 
 module.exports = Promotion;
-
-
-
-
-
-

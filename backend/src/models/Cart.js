@@ -1,9 +1,11 @@
+const { parseRowData, decodeEscapedUTF8 } = require('../utils/helpers');
+
 class CartItem {
   constructor(data) {
-    this.productId = data.productId;
-    this.productName = data.productName;
-    this.price = data.price;
-    this.quantity = data.quantity;
+    this.productId = data.productId || '';
+    this.productName = data.productName || '';
+    this.price = data.price || 0;
+    this.quantity = data.quantity || 0;
     this.size = data.size || 'Medium';
     this.options = data.options || {}; // { 'Đường': 'Vừa', 'Đá': 'Ít' }
     this.imageUrl = data.imageUrl || null;
@@ -16,22 +18,22 @@ class CartItem {
 
   toJSON() {
     return {
-      productId: this.productId,
-      productName: this.productName,
-      price: this.price,
-      quantity: this.quantity,
-      size: this.size,
-      options: this.options,
-      imageUrl: this.imageUrl,
-      note: this.note,
-      subtotal: this.subtotal,
+      productId: this.productId || '',
+      productName: this.productName || '',
+      price: this.price || 0,
+      quantity: this.quantity || 0,
+      size: this.size || 'Medium',
+      options: this.options || {},
+      imageUrl: this.imageUrl || null,
+      note: this.note || '',
+      subtotal: this.subtotal || 0,
     };
   }
 }
 
 class Cart {
   constructor(data) {
-    this.userId = data.userId;
+    this.userId = data.userId || '';
     this.items = (data.items || []).map(item => new CartItem(item));
     this.updatedAt = data.updatedAt || new Date().toISOString();
   }
@@ -85,36 +87,40 @@ class Cart {
 
   toJSON() {
     return {
-      userId: this.userId,
+      userId: this.userId || '',
       items: this.items.map(item => item.toJSON()),
-      totalItems: this.totalItems,
-      totalPrice: this.totalPrice,
-      updatedAt: this.updatedAt,
+      totalItems: this.totalItems || 0,
+      totalPrice: this.totalPrice || 0,
+      updatedAt: this.updatedAt || new Date().toISOString(),
     };
   }
 
   static fromBigtableRow(row, rowData) {
+    // Use parseRowData helper to ensure proper UTF-8 decoding
+    const parsedData = parseRowData(rowData);
+    
     const items = [];
     
     // Parse items from Bigtable (stored as item_0, item_1, etc.)
-    Object.keys(rowData).forEach(key => {
+    Object.keys(parsedData).forEach(key => {
       if (key.startsWith('item_')) {
-        items.push(JSON.parse(rowData[key]));
+        try {
+          // Properly decode UTF-8 for item data
+          let itemValue = parsedData[key];
+          itemValue = decodeEscapedUTF8(itemValue);
+          items.push(JSON.parse(itemValue || '{}'));
+        } catch (error) {
+          console.error(`Error parsing cart item ${key}:`, error);
+        }
       }
     });
 
     return new Cart({
-      userId: row.id,
-      items,
-      updatedAt: rowData.updatedAt,
+      userId: row.id || '',
+      items: items,
+      updatedAt: parsedData.updatedAt || new Date().toISOString(),
     });
   }
 }
 
 module.exports = { Cart, CartItem };
-
-
-
-
-
-

@@ -1,13 +1,14 @@
 const { v4: uuidv4 } = require('uuid');
+const { parseRowData, decodeEscapedUTF8 } = require('../utils/helpers');
 
 class Product {
   constructor(data) {
     this.id = data.id || `product#${uuidv4()}`;
-    this.name = data.name;
+    this.name = data.name || '';
     this.description = data.description || '';
-    this.price = data.price;
+    this.price = data.price || 0;
     this.imageUrl = data.imageUrl || null;
-    this.category = data.category; // coffee, tea, smoothie, food, pastry
+    this.category = data.category || 'other'; // coffee, tea, smoothie, food, pastry
     this.isAvailable = data.isAvailable !== undefined ? data.isAvailable : true;
     this.preparationTime = data.preparationTime || 10; // minutes
     this.sizes = data.sizes || ['Medium', 'Large'];
@@ -18,41 +19,40 @@ class Product {
 
   toJSON() {
     return {
-      id: this.id,
-      name: this.name,
-      description: this.description,
-      price: this.price,
-      imageUrl: this.imageUrl,
-      category: this.category,
-      isAvailable: this.isAvailable,
-      preparationTime: this.preparationTime,
-      sizes: this.sizes,
-      options: this.options,
-      createdAt: this.createdAt,
-      updatedAt: this.updatedAt,
+      id: this.id || '',
+      name: this.name || '',
+      description: this.description || '',
+      price: this.price || 0,
+      imageUrl: this.imageUrl || null,
+      category: this.category || 'other',
+      isAvailable: this.isAvailable || false,
+      preparationTime: this.preparationTime || 10,
+      sizes: this.sizes || [],
+      options: this.options || [],
+      createdAt: this.createdAt || new Date().toISOString(),
+      updatedAt: this.updatedAt || new Date().toISOString(),
     };
   }
 
   static fromBigtableRow(row, rowData) {
+    // Use parseRowData helper to ensure proper UTF-8 decoding
+    const parsedData = parseRowData(rowData);
+    
     return new Product({
-      id: row.id,
-      name: rowData.name,
-      description: rowData.description,
-      price: parseFloat(rowData.price),
-      imageUrl: rowData.imageUrl,
-      category: rowData.category,
-      isAvailable: rowData.isAvailable === 'true',
-      preparationTime: parseInt(rowData.preparationTime) || 10,
-      sizes: rowData.sizes ? JSON.parse(rowData.sizes) : [],
-      options: rowData.options ? JSON.parse(rowData.options) : [],
-      createdAt: rowData.createdAt,
-      updatedAt: rowData.updatedAt,
+      id: row.id || '',
+      name: decodeEscapedUTF8(parsedData.name) || '',
+      description: decodeEscapedUTF8(parsedData.description) || '',
+      price: parseFloat(parsedData.price) || 0,
+      imageUrl: parsedData.imageUrl || null,
+      category: parsedData.category || 'other',
+      isAvailable: (parsedData.isAvailable === 'true') || (parsedData.isAvailable === true),
+      preparationTime: parseInt(parsedData.preparationTime) || 10,
+      sizes: parsedData.sizes ? JSON.parse(parsedData.sizes || '[]') : [],
+      options: parsedData.options ? JSON.parse(parsedData.options || '[]') : [],
+      createdAt: parsedData.createdAt || new Date().toISOString(),
+      updatedAt: parsedData.updatedAt || new Date().toISOString(),
     });
   }
 }
 
 module.exports = Product;
-
-
-
-
