@@ -23,7 +23,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedSize = widget.product.sizes.first;
+    // Initialize selected size safely
+    if (widget.product.sizes.isNotEmpty) {
+      _selectedSize = widget.product.sizes.first;
+    } else {
+      _selectedSize = 'Medium'; // Default size if no sizes available
+    }
     
     // Initialize default options
     for (var option in widget.product.options) {

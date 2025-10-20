@@ -5,6 +5,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/product.dart';
+import '../../models/user.dart';
 import '../../config/theme.dart';
 import '../product/product_detail_screen.dart';
 import '../cart/cart_screen.dart';
@@ -37,6 +38,15 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Highlands Coffee'),
         actions: [
+          // Admin button (only show for admin users)
+          if (authProvider.currentUser?.role == UserRole.admin)
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings),
+              onPressed: () {
+                Navigator.of(context).pushNamed('/admin/orders');
+              },
+              tooltip: 'Admin Panel',
+            ),
           badges.Badge(
             badgeContent: Text(
               '${cartProvider.itemCount}',

@@ -72,8 +72,13 @@ class Order {
     return {
       'id': id,
       'userId': userId,
-      'store': store.toJson(),
-      'items': items.map((e) => e.toJson()).toList(),
+      'storeId': store.id, // Send storeId instead of full store object
+      'items': items.map((e) => {
+        'productId': e.product.id,
+        'quantity': e.quantity,
+        'size': e.size,
+        'options': e.selectedOptions,
+      }).toList(),
       'subtotal': subtotal,
       'tax': tax,
       'total': total,

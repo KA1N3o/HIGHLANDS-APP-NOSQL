@@ -26,9 +26,12 @@ function parseRowData(row) {
         
         // Try to parse JSON, otherwise use as string
         try {
-          data[column] = JSON.parse(cellValue);
+          // Ensure proper UTF-8 decoding
+          const stringValue = cellValue.toString('utf8');
+          data[column] = JSON.parse(stringValue);
         } catch {
-          data[column] = cellValue.toString();
+          // Ensure proper UTF-8 decoding for string values
+          data[column] = cellValue.toString('utf8');
         }
       }
     }

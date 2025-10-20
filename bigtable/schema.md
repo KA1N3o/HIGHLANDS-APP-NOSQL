@@ -13,6 +13,7 @@ This document describes the Google Bigtable schema for the Highlands Coffee orde
 
 ### 1. users
 Stores user account information.
+Stores user account information.
 
 **Row Key Format**: `user#{user_id}`
 
@@ -22,7 +23,9 @@ Stores user account information.
   - `name`: Full name
   - `phone`: Phone number
   - `photoUrl`: Profile photo URL
-  - `role`: User role (customer, staff, admin)
+  - `role`: User role (customer, staff, admin, shipper)
+  - `addresses`: JSON array of delivery addresses
+  - `defaultAddressIndex`: Index of default address
   - `createdAt`: Account creation timestamp
 
 - `auth` (max versions: 1)
@@ -161,7 +164,140 @@ Row Key: order#9223370482312345678#ord001
 
 ---
 
-### 5. sessions
+### 5. carts
+Stores user shopping cart items.
+
+**Row Key Format**: `user#{user_id}`
+
+**Column Families**:
+- `items` (max versions: 1)
+  - `item_{n}`: JSON representation of each cart item
+  - Format: `{"productId":"p001","productName":"Phin Sữa Đá","price":39000,"quantity":2,"size":"Medium","options":{},"imageUrl":"...","note":""}`
+
+- `meta` (max versions: 1)
+  - `updatedAt`: Last update timestamp
+  - `totalItems`: Total number of items
+  - `totalPrice`: Total price
+
+**Example Row**:
+```
+Row Key: user#abc123
+  items:item_0 = '{"productId":"p001","quantity":2,...}'
+  items:item_1 = '{"productId":"p002","quantity":1,...}'
+  meta:updatedAt = "2024-01-15T14:30:00Z"
+  meta:totalItems = "3"
+  meta:totalPrice = "117000"
+```
+
+---
+
+### 6. deliveries
+Stores delivery information for orders.
+
+**Row Key Format**: `delivery#{delivery_id}`
+
+**Column Families**:
+- `info` (max versions: 1)
+  - `orderId`: Associated order ID
+  - `shipperId`: Shipper user ID
+  - `shipperName`: Shipper name
+  - `shipperPhone`: Shipper phone
+  - `status`: Delivery status (pending, assigned, picking_up, delivering, delivered, failed)
+  - `pickupAddress`: JSON - Store/pickup location
+  - `deliveryAddress`: JSON - Customer delivery address
+  - `currentLocation`: JSON - Current GPS location
+  - `estimatedDeliveryTime`: Estimated delivery time
+  - `actualDeliveryTime`: Actual delivery time
+  - `notes`: Delivery notes
+  - `failureReason`: Reason for failed delivery
+  - `createdAt`: Delivery creation time
+  - `updatedAt`: Last update time
+
+**Example Row**:
+```
+Row Key: delivery#dlv001
+  info:orderId = "ord001"
+  info:shipperId = "user#shipper123"
+  info:shipperName = "Nguyen Van B"
+  info:status = "delivering"
+  info:deliveryAddress = '{"name":"...","address":"...","lat":"...","lng":"..."}'
+  info:currentLocation = '{"lat":"10.7756","lng":"106.7019","timestamp":"..."}'
+```
+
+---
+
+### 7. promotions
+Stores promotion/discount codes.
+
+**Row Key Format**: `promo#{promotion_id}`
+
+**Column Families**:
+- `info` (max versions: 1)
+  - `code`: Promotion code (unique)
+  - `name`: Promotion name
+  - `description`: Promotion description
+  - `type`: Discount type (percentage, fixed_amount, free_shipping)
+  - `value`: Discount value
+  - `minOrderValue`: Minimum order value required
+  - `maxDiscount`: Maximum discount amount (for percentage type)
+  - `usageLimit`: Maximum number of uses (null = unlimited)
+  - `usageCount`: Current usage count
+  - `startDate`: Promotion start date
+  - `endDate`: Promotion end date
+  - `isActive`: Active status
+  - `createdAt`: Creation time
+  - `updatedAt`: Last update time
+
+**Example Row**:
+```
+Row Key: promo#p001
+  info:code = "HIGHLAND2024"
+  info:name = "Giảm giá đầu năm"
+  info:type = "percentage"
+  info:value = "20"
+  info:minOrderValue = "100000"
+  info:maxDiscount = "50000"
+  info:usageLimit = "100"
+  info:usageCount = "45"
+  info:startDate = "2024-01-01T00:00:00Z"
+  info:endDate = "2024-12-31T23:59:59Z"
+  info:isActive = "true"
+```
+
+---
+
+### 8. payments
+Stores payment transaction information.
+
+**Row Key Format**: `payment#{payment_id}`
+
+**Column Families**:
+- `info` (max versions: 1)
+  - `orderId`: Associated order ID
+  - `userId`: User ID
+  - `amount`: Payment amount
+  - `method`: Payment method (COD, card, momo, zalopay)
+  - `status`: Payment status (pending, paid, failed, refunded)
+  - `transactionId`: External transaction ID (for online payments)
+  - `metadata`: JSON - Additional payment metadata
+  - `createdAt`: Payment creation time
+  - `updatedAt`: Last update time
+
+**Example Row**:
+```
+Row Key: payment#pay001
+  info:orderId = "ord001"
+  info:userId = "user#abc123"
+  info:amount = "117000"
+  info:method = "momo"
+  info:status = "paid"
+  info:transactionId = "momo_tx_12345"
+  info:createdAt = "2024-01-15T14:30:00Z"
+```
+
+---
+
+### 9. sessions
 Stores user authentication sessions.
 
 **Row Key Format**: `session#{session_token}`

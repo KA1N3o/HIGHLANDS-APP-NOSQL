@@ -7,10 +7,11 @@ import '../models/store.dart';
 
 class ApiService {
   // Replace with your actual Bigtable REST API endpoint
-  static const String baseUrl = 'https://your-bigtable-api.com/api';
+  // static const String baseUrl = 'https://your-bigtable-api.com/api';
   
   // For development, you can use a local server or mock API
-  // static const String baseUrl = 'http://localhost:8080/api';
+  // Use 10.0.2.2 for Android emulator to access host machine's localhost
+  static const String baseUrl = 'http://10.0.2.2:8080/api';
   
   final http.Client _client;
   String? _authToken;
@@ -19,6 +20,36 @@ class ApiService {
 
   void setAuthToken(String token) {
     _authToken = token;
+  }
+
+  String? get authToken => _authToken;
+
+  // Helper method to decode escape sequences
+  String _decodeEscapeSequences(String text) {
+    // Handle \x escape sequences (both single and double backslash)
+    String result = text;
+    
+    // First try to decode \\x sequences (double backslash from JSON)
+    result = result.replaceAllMapped(
+      RegExp(r'\\x([0-9A-Fa-f]{2})'),
+      (match) {
+        final hex = match.group(1)!;
+        final codeUnit = int.parse(hex, radix: 16);
+        return String.fromCharCode(codeUnit);
+      },
+    );
+    
+    // Then try to decode \x sequences (single backslash)
+    result = result.replaceAllMapped(
+      RegExp(r'\x([0-9A-Fa-f]{2})'),
+      (match) {
+        final hex = match.group(1)!;
+        final codeUnit = int.parse(hex, radix: 16);
+        return String.fromCharCode(codeUnit);
+      },
+    );
+    
+    return result;
   }
 
   Map<String, String> get _headers {
@@ -44,7 +75,14 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          // Return the data field directly for compatibility
+          return jsonResponse['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception('Login failed: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Login failed: ${response.body}');
       }
@@ -72,7 +110,14 @@ class ApiService {
       );
 
       if (response.statusCode == 201) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          // Return the data field directly for compatibility
+          return jsonResponse['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception('Registration failed: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Registration failed: ${response.body}');
       }
@@ -126,8 +171,46 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-        return data.map((json) => Product.fromJson(json as Map<String, dynamic>)).toList();
+        final Map<String, dynamic> responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (responseData['success'] == true && responseData['message'] != null) {
+          final Map<String, dynamic> messageData = responseData['message'] as Map<String, dynamic>;
+          
+          final List<dynamic> productsData = messageData['products'] as List<dynamic>;
+          
+          // Fix sizes field if it's a string instead of array
+          final fixedProducts = productsData.map((json) {
+            final productJson = json as Map<String, dynamic>;
+            
+            // Fix sizes field
+            if (productJson['sizes'] is String) {
+              try {
+                productJson['sizes'] = jsonDecode(productJson['sizes'] as String);
+              } catch (e) {
+                productJson['sizes'] = [];
+              }
+            }
+            
+            // Fix UTF-8 encoding issues in text fields
+            final textFields = ['name', 'description'];
+            for (final field in textFields) {
+              if (productJson[field] is String) {
+                final text = productJson[field] as String;
+                // Decode escape sequences like \xE1\xBB\x81n
+                final decoded = _decodeEscapeSequences(text);
+                print('DEBUG: $field - Original: $text');
+                print('DEBUG: $field - Decoded: $decoded');
+                productJson[field] = decoded;
+              }
+            }
+            
+            return productJson;
+          }).toList();
+          
+          return fixedProducts.map((json) => Product.fromJson(json)).toList();
+        } else {
+          throw Exception('Failed to get products: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to get products: ${response.body}');
       }
@@ -162,8 +245,14 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-        return data.map((json) => Store.fromJson(json as Map<String, dynamic>)).toList();
+        final Map<String, dynamic> responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final List<dynamic> storesData = responseData['data'] as List<dynamic>;
+          return storesData.map((json) => Store.fromJson(json as Map<String, dynamic>)).toList();
+        } else {
+          throw Exception('Failed to get stores: ${responseData['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to get stores: ${response.body}');
       }

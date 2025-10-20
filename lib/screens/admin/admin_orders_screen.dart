@@ -133,7 +133,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
           ),
         ),
         title: Text(
-          '#${order.id.substring(0, 8).toUpperCase()}',
+          '#${order.id.toUpperCase()}',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

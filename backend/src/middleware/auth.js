@@ -67,8 +67,70 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
+/**
+ * Middleware to check if user has shipper role
+ */
+const shipperMiddleware = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json(
+      errorResponse('Authentication required', 401)
+    );
+  }
+
+  if (req.user.role !== 'shipper' && req.user.role !== 'admin') {
+    return res.status(403).json(
+      errorResponse('Shipper access required', 403)
+    );
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if user has staff or admin role
+ */
+const staffMiddleware = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json(
+      errorResponse('Authentication required', 401)
+    );
+  }
+
+  if (!['staff', 'admin'].includes(req.user.role)) {
+    return res.status(403).json(
+      errorResponse('Staff access required', 403)
+    );
+  }
+
+  next();
+};
+
+/**
+ * Middleware to check if user has specific roles
+ */
+const roleMiddleware = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json(
+        errorResponse('Authentication required', 401)
+      );
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json(
+        errorResponse('Insufficient permissions', 403)
+      );
+    }
+
+    next();
+  };
+};
+
 module.exports = {
   authMiddleware,
   adminMiddleware,
+  shipperMiddleware,
+  staffMiddleware,
+  roleMiddleware,
 };
 

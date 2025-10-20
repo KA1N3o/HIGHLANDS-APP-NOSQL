@@ -1,0 +1,62 @@
+docker run -d --name hbase -p 16010:16010 -p 16020:16020 -p 2181:2181 bde2020/hbase-standalone
+docker exec -it hbase hbase shell
+# =====================================================
+# HIGHLANDS COFFEE - HBASE TABLE CREATION COMMANDS
+# =====================================================
+# 
+# Copy và paste từng command này vào HBase Shell
+# Cách dùng:
+#   1. Mở terminal và chạy: hbase shell
+#   2. Copy paste từng command bên dưới
+#   3. Enter sau mỗi command
+# =====================================================
+
+# 1. TẠO TABLE: users (Người dùng)
+create 'users', {NAME => 'profile', VERSIONS => 1}, {NAME => 'auth', VERSIONS => 1}
+
+# 2. TẠO TABLE: products (Sản phẩm)
+create 'products', {NAME => 'info', VERSIONS => 1}, {NAME => 'options', VERSIONS => 1}
+
+# 3. TẠO TABLE: stores (Cửa hàng)
+create 'stores', {NAME => 'info', VERSIONS => 1}, {NAME => 'hours', VERSIONS => 1}
+
+# 4. TẠO TABLE: orders (Đơn hàng)
+create 'orders', {NAME => 'info', VERSIONS => 1}, {NAME => 'payment', VERSIONS => 1}, {NAME => 'items', VERSIONS => 1}
+
+# 5. TẠO TABLE: orders_by_user (Index cho user orders)
+create 'orders_by_user', {NAME => 'ref', VERSIONS => 1}
+
+# 6. TẠO TABLE: sessions (JWT sessions - TTL 30 ngày)
+create 'sessions', {NAME => 'data', TTL => 2592000, VERSIONS => 1}
+
+# 7. TẠO TABLE: carts (Giỏ hàng)
+create 'carts', {NAME => 'items', VERSIONS => 1}, {NAME => 'meta', VERSIONS => 1}
+
+# 8. TẠO TABLE: deliveries (Giao hàng)
+create 'deliveries', {NAME => 'info', VERSIONS => 1}
+
+# 9. TẠO TABLE: promotions (Khuyến mãi)
+create 'promotions', {NAME => 'info', VERSIONS => 1}
+
+# 10. TẠO TABLE: payments (Thanh toán)
+create 'payments', {NAME => 'info', VERSIONS => 1}
+
+# =====================================================
+# KIỂM TRA
+# =====================================================
+
+# Xem danh sách tất cả tables
+list
+
+# Xem chi tiết structure của 1 table
+describe 'products'
+describe 'users'
+describe 'orders'
+
+# =====================================================
+# DONE! Bạn đã tạo xong 10 tables
+# =====================================================
+
+
+
+

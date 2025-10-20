@@ -35,11 +35,59 @@ Vì đang dùng mock data, bạn có thể login với bất kỳ email/password
 - Email: `test@test.com`
 - Password: `123456`
 
-## 🔧 Chuyển sang Production Mode
+## 🔧 Chuyển sang Production Mode (NoSQL HBase/Bigtable)
 
 Khi đã sẵn sàng kết nối với Bigtable:
 
-### 1. Tắt Mock Data Mode
+### 1. Setup Bigtable Instance
+
+```bash
+cd bigtable
+chmod +x *.sh
+./setup.sh      # Tạo Bigtable instance và tables
+./seed_data.sh  # Thêm dữ liệu mẫu
+```
+
+**Windows users**: Chạy các lệnh trong Git Bash hoặc WSL.
+
+### 2. Deploy Backend API Server
+
+Backend Node.js đã được tạo sẵn trong thư mục `backend/`:
+
+```bash
+cd backend
+
+# Cài đặt dependencies
+npm install
+
+# Copy và cấu hình .env
+cp env.example .env
+# Chỉnh sửa .env với thông tin GCP project của bạn
+
+# Chạy local (development)
+npm run dev
+
+# Hoặc deploy lên Google Cloud Run (production)
+chmod +x deploy.sh
+export GCP_PROJECT_ID=your-project-id
+./deploy.sh
+```
+
+Xem chi tiết trong `backend/README.md`
+
+### 3. Cấu hình API URL trong Flutter App
+
+Sau khi deploy backend, update URL trong `lib/services/api_service.dart`:
+
+```dart
+// Development (local)
+static const String baseUrl = 'http://localhost:8080/api';
+
+// Production (Cloud Run)
+static const String baseUrl = 'https://your-cloud-run-url.run.app/api';
+```
+
+### 4. Tắt Mock Data Mode
 
 Trong `lib/providers/product_provider.dart`:
 ```dart
@@ -50,32 +98,6 @@ Trong `lib/providers/store_provider.dart`:
 ```dart
 bool _useMockData = false; // Đổi từ true sang false
 ```
-
-### 2. Setup Bigtable Backend
-
-```bash
-cd bigtable
-./setup.sh      # Tạo database (Linux/Mac)
-./seed_data.sh  # Thêm dữ liệu mẫu
-```
-
-**Windows users**: Chạy các lệnh trong Git Bash hoặc WSL.
-
-### 3. Cấu hình API URL
-
-Trong `lib/services/api_service.dart`:
-```dart
-static const String baseUrl = 'https://your-api-url.com/api';
-```
-
-### 4. Implement Backend API
-
-Bạn cần tạo REST API server để kết nối Flutter app với Bigtable:
-- Node.js + Express
-- Python + FastAPI
-- Go + Gin
-
-Xem chi tiết trong `bigtable/README.md`
 
 ## 🎯 Tính năng chính để test
 

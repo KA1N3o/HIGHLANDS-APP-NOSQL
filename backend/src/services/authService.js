@@ -44,7 +44,7 @@ class AuthService {
       email,
       name,
       phone,
-      role: 'customer',
+      role: email === 'admin@highlands.vn' ? 'admin' : 'customer',
       createdAt,
     });
 
@@ -57,7 +57,8 @@ class AuthService {
     await row.save([...profileMutations, ...authMutations]);
 
     // Generate JWT token
-    const token = this.generateToken(userId, email, 'customer');
+    const userRole = email === 'admin@highlands.vn' ? 'admin' : 'customer';
+    const token = this.generateToken(userId, email, userRole);
 
     return {
       user: {
@@ -65,7 +66,7 @@ class AuthService {
         email,
         name,
         phone,
-        role: 'customer',
+        role: userRole,
         createdAt,
       },
       token,

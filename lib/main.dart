@@ -14,6 +14,8 @@ import 'screens/auth/register_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/store/store_list_screen.dart';
 import 'screens/order/order_list_screen.dart';
+import 'screens/cart/cart_screen.dart';
+import 'screens/admin/admin_orders_screen.dart';
 
 void main() {
   runApp(const HighlandsApp());
@@ -45,6 +47,8 @@ class HighlandsApp extends StatelessWidget {
           '/home': (context) => const HomeScreen(),
           '/stores': (context) => const StoreListScreen(),
           '/orders': (context) => const OrderListScreen(),
+          '/cart': (context) => const CartScreen(),
+          '/admin/orders': (context) => const AdminOrdersScreen(),
         },
       ),
     );

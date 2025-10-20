@@ -8,13 +8,15 @@ const {
 } = require('../utils/helpers');
 const storeService = require('./storeService');
 const productService = require('./productService');
+const deliveryService = require('./deliveryService');
+const Order = require('../models/Order');
 
 class OrderService {
   /**
    * Create a new order
    */
   async createOrder(userId, orderData) {
-    const { storeId, items, paymentMethod, notes } = orderData;
+    const { storeId, items, paymentMethod, notes, deliveryAddress, promotionCode } = orderData;
 
     // Validate store exists
     const store = await storeService.getStoreById(storeId);
@@ -45,7 +47,24 @@ class OrderService {
     }
 
     const tax = calculateTax(subtotal);
-    const total = subtotal + tax;
+    const deliveryFee = 15000; // Fixed delivery fee
+    let discount = 0;
+    
+    // Apply promotion if provided
+    if (promotionCode) {
+      const promotionService = require('./promotionService');
+      try {
+        const result = await promotionService.applyPromotion(promotionCode, subtotal);
+        discount = result.discount;
+        // Increment usage count
+        await promotionService.incrementUsage(result.promotion.id);
+      } catch (error) {
+        // Invalid promotion, ignore
+        console.log('Invalid promotion code:', error.message);
+      }
+    }
+    
+    const total = subtotal + tax + deliveryFee - discount;
 
     // Generate order ID with reversed timestamp
     const orderId = generateId('ord');
@@ -63,6 +82,8 @@ class OrderService {
       orderTime,
       status: 'pending',
       notes: notes || '',
+      deliveryAddress: JSON.stringify(deliveryAddress || {}),
+      promotionCode: promotionCode || '',
     });
 
     const paymentMutations = createMutations('payment', {
@@ -70,6 +91,8 @@ class OrderService {
       status: 'pending',
       subtotal: String(subtotal),
       tax: String(tax),
+      deliveryFee: String(deliveryFee),
+      discount: String(discount),
       total: String(total),
     });
 
@@ -98,6 +121,21 @@ class OrderService {
     });
     await indexRow.save(refMutation);
 
+    // Create delivery record
+    if (deliveryAddress) {
+      await deliveryService.createDelivery({
+        orderId,
+        deliveryAddress,
+        pickupAddress: {
+          name: store.name,
+          address: store.address,
+          lat: store.latitude,
+          lng: store.longitude,
+        },
+        status: 'pending',
+      });
+    }
+
     return {
       id: orderId,
       userId,
@@ -105,12 +143,16 @@ class OrderService {
       items: orderItems,
       subtotal,
       tax,
+      deliveryFee,
+      discount,
       total,
       status: 'pending',
       paymentMethod,
       paymentStatus: 'pending',
+      deliveryAddress,
       orderTime,
       notes: notes || null,
+      promotionCode: promotionCode || null,
     };
   }
 
@@ -180,23 +222,105 @@ class OrderService {
 
     const row = ordersTable.row(orderRow.id);
     
-    const mutations = createMutations('info', { status });
+    const updateData = { status };
     
-    // Add completed time if status is completed
-    if (status === 'completed') {
-      mutations.push({
-        method: 'insert',
-        data: {
-          columnFamily: 'info',
-          column: 'completedTime',
-          value: new Date().toISOString(),
-        },
-      });
+    // Add timestamps based on status
+    if (status === 'confirmed') {
+      updateData.confirmedTime = new Date().toISOString();
+    } else if (status === 'completed') {
+      updateData.completedTime = new Date().toISOString();
+    } else if (status === 'cancelled') {
+      updateData.cancelledTime = new Date().toISOString();
     }
+    
+    const mutations = createMutations('info', updateData);
+    await row.save(mutations);
+
+    // Update delivery status if status is delivering
+    if (status === 'delivering') {
+      try {
+        const delivery = await deliveryService.getDeliveryByOrderId(orderId);
+        await deliveryService.updateDeliveryStatus(delivery.id, 'delivering');
+      } catch (error) {
+        console.log('No delivery record found for order:', orderId);
+      }
+    } else if (status === 'completed') {
+      try {
+        const delivery = await deliveryService.getDeliveryByOrderId(orderId);
+        await deliveryService.updateDeliveryStatus(delivery.id, 'delivered', {
+          actualDeliveryTime: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.log('No delivery record found for order:', orderId);
+      }
+    }
+
+    return this.getOrderById(orderId);
+  }
+
+  /**
+   * Cancel order
+   */
+  async cancelOrder(orderId, userId, cancelReason) {
+    const order = await this.getOrderById(orderId);
+
+    // Check if user owns the order
+    if (order.userId !== userId) {
+      throw new Error('Unauthorized to cancel this order');
+    }
+
+    // Check if order can be cancelled
+    if (!['pending', 'confirmed'].includes(order.status)) {
+      throw new Error('Order cannot be cancelled at this stage');
+    }
+
+    const ordersTable = tables.orders;
+    const [rows] = await ordersTable.getRows();
+    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+
+    const row = ordersTable.row(orderRow.id);
+    
+    const mutations = createMutations('info', {
+      status: 'cancelled',
+      cancelledTime: new Date().toISOString(),
+      cancelReason: cancelReason || 'Customer request',
+    });
 
     await row.save(mutations);
 
-    return this.parseOrderData(orderRow.id, orderRow);
+    // Update delivery status
+    try {
+      const delivery = await deliveryService.getDeliveryByOrderId(orderId);
+      await deliveryService.updateDeliveryStatus(delivery.id, 'failed', {
+        failureReason: 'Order cancelled by customer',
+      });
+    } catch (error) {
+      console.log('No delivery record found for order:', orderId);
+    }
+
+    return this.getOrderById(orderId);
+  }
+
+  /**
+   * Update payment status
+   */
+  async updatePaymentStatus(orderId, paymentStatus) {
+    const ordersTable = tables.orders;
+
+    // Find order
+    const [rows] = await ordersTable.getRows();
+    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+
+    if (!orderRow) {
+      throw new Error('Order not found');
+    }
+
+    const row = ordersTable.row(orderRow.id);
+    
+    const mutations = createMutations('payment', { status: paymentStatus });
+    await row.save(mutations);
+
+    return this.getOrderById(orderId);
   }
 
   /**

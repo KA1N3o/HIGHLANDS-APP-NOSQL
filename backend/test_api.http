@@ -1,0 +1,349 @@
+### Variables
+@baseUrl = http://localhost:8080
+@token = your_jwt_token_here
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ========== AUTHENTICATION ==========
+
+### Register
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123",
+  "name": "Test User",
+  "phone": "0901234567"
+}
+
+### Login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+### ========== USERS ==========
+
+### Get Current User Profile
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### Update Profile
+PUT {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "phone": "0909999999"
+}
+
+### Add Address
+POST {{baseUrl}}/api/users/me/addresses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Nhà riêng",
+  "address": "123 Nguyen Hue, Q1, TP.HCM",
+  "lat": "10.7756",
+  "lng": "106.7019",
+  "phone": "0901234567"
+}
+
+### Get Order History
+GET {{baseUrl}}/api/users/me/orders?limit=20
+Authorization: Bearer {{token}}
+
+### ========== PRODUCTS ==========
+
+### Get All Products
+GET {{baseUrl}}/api/products
+Authorization: Bearer {{token}}
+
+### Get Products by Category
+GET {{baseUrl}}/api/products?category=coffee&available=true
+Authorization: Bearer {{token}}
+
+### Search Products
+GET {{baseUrl}}/api/products/search?q=cafe
+Authorization: Bearer {{token}}
+
+### Get Categories
+GET {{baseUrl}}/api/products/categories
+Authorization: Bearer {{token}}
+
+### Get Product Details
+GET {{baseUrl}}/api/products/product#p001
+Authorization: Bearer {{token}}
+
+### ========== CART ==========
+
+### Get Cart
+GET {{baseUrl}}/api/cart
+Authorization: Bearer {{token}}
+
+### Add Item to Cart
+POST {{baseUrl}}/api/cart/items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "productId": "product#p001",
+  "quantity": 2,
+  "size": "Large",
+  "options": {
+    "Đường": "Vừa",
+    "Đá": "Ít"
+  },
+  "note": "Không thêm kem"
+}
+
+### Update Cart Item
+PUT {{baseUrl}}/api/cart/items/0
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "quantity": 3
+}
+
+### Remove Cart Item
+DELETE {{baseUrl}}/api/cart/items/0
+Authorization: Bearer {{token}}
+
+### Clear Cart
+DELETE {{baseUrl}}/api/cart
+Authorization: Bearer {{token}}
+
+### ========== ORDERS ==========
+
+### Create Order
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "storeId": "store#s001",
+  "items": [
+    {
+      "productId": "product#p001",
+      "quantity": 2,
+      "size": "Large",
+      "options": {
+        "Đường": "Vừa",
+        "Đá": "Ít"
+      }
+    }
+  ],
+  "paymentMethod": "COD",
+  "deliveryAddress": {
+    "name": "Nhà riêng",
+    "address": "123 Nguyen Hue, Q1, TP.HCM",
+    "lat": "10.7756",
+    "lng": "106.7019",
+    "phone": "0901234567"
+  },
+  "promotionCode": "HIGHLAND2024",
+  "notes": "Giao trước 5pm"
+}
+
+### Get Order Details
+GET {{baseUrl}}/api/orders/ord123
+Authorization: Bearer {{token}}
+
+### Cancel Order
+POST {{baseUrl}}/api/orders/ord123/cancel
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "reason": "Đổi ý không mua nữa"
+}
+
+### ========== PROMOTIONS ==========
+
+### Get Active Promotions
+GET {{baseUrl}}/api/promotions
+Authorization: Bearer {{token}}
+
+### Get Promotion by Code
+GET {{baseUrl}}/api/promotions/HIGHLAND2024
+Authorization: Bearer {{token}}
+
+### Validate Promotion
+POST {{baseUrl}}/api/promotions/validate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "code": "HIGHLAND2024",
+  "orderValue": 100000
+}
+
+### ========== DELIVERY (Shipper) ==========
+
+### Get Shipper Deliveries
+GET {{baseUrl}}/api/delivery/shipper?status=delivering
+Authorization: Bearer {{token}}
+
+### Get Delivery by Order
+GET {{baseUrl}}/api/delivery/order/ord123
+Authorization: Bearer {{token}}
+
+### Update Delivery Status
+PUT {{baseUrl}}/api/delivery/dlv123/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "delivering",
+  "location": {
+    "lat": "10.7756",
+    "lng": "106.7019"
+  }
+}
+
+### Update Location
+PUT {{baseUrl}}/api/delivery/dlv123/location
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "lat": "10.7756",
+  "lng": "106.7019"
+}
+
+### ========== ADMIN - PRODUCTS ==========
+
+### Create Product (Admin)
+POST {{baseUrl}}/api/admin/products
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Phin Sữa Đá",
+  "description": "Cà phê phin truyền thống Việt Nam",
+  "price": 39000,
+  "category": "coffee",
+  "imageUrl": "https://example.com/phin-sua-da.jpg",
+  "preparationTime": 8,
+  "sizes": ["Small", "Medium", "Large"],
+  "options": [
+    {
+      "name": "Đường",
+      "choices": ["Ít", "Vừa", "Nhiều"]
+    },
+    {
+      "name": "Đá",
+      "choices": ["Ít", "Vừa", "Nhiều"]
+    }
+  ]
+}
+
+### Update Product (Admin)
+PUT {{baseUrl}}/api/admin/products/product#p001
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "price": 45000,
+  "isAvailable": true
+}
+
+### Delete Product (Admin)
+DELETE {{baseUrl}}/api/admin/products/product#p001
+Authorization: Bearer {{token}}
+
+### ========== ADMIN - PROMOTIONS ==========
+
+### Get All Promotions (Admin)
+GET {{baseUrl}}/api/admin/promotions
+Authorization: Bearer {{token}}
+
+### Create Promotion (Admin)
+POST {{baseUrl}}/api/admin/promotions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "code": "NEWYEAR2024",
+  "name": "Giảm giá đầu năm",
+  "description": "Giảm 20% cho đơn hàng từ 100k",
+  "type": "percentage",
+  "value": 20,
+  "minOrderValue": 100000,
+  "maxDiscount": 50000,
+  "usageLimit": 100,
+  "startDate": "2024-01-01T00:00:00Z",
+  "endDate": "2024-12-31T23:59:59Z",
+  "isActive": true
+}
+
+### Update Promotion (Admin)
+PUT {{baseUrl}}/api/admin/promotions/promo#p001
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "isActive": false
+}
+
+### Delete Promotion (Admin)
+DELETE {{baseUrl}}/api/admin/promotions/promo#p001
+Authorization: Bearer {{token}}
+
+### ========== ADMIN - ORDERS ==========
+
+### Get All Orders (Admin)
+GET {{baseUrl}}/api/admin/orders?limit=50
+Authorization: Bearer {{token}}
+
+### Update Order Status (Admin)
+PUT {{baseUrl}}/api/admin/orders/ord123/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "confirmed"
+}
+
+### ========== ADMIN - USERS ==========
+
+### Get All Users (Admin)
+GET {{baseUrl}}/api/admin/users?limit=50
+Authorization: Bearer {{token}}
+
+### Update User Role (Admin)
+PUT {{baseUrl}}/api/admin/users/user#abc123/role
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "role": "shipper"
+}
+
+### ========== ADMIN - REPORTS ==========
+
+### Get Overview Report (Admin)
+GET {{baseUrl}}/api/admin/reports/overview?startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer {{token}}
+
+### ========== STORES ==========
+
+### Get All Stores
+GET {{baseUrl}}/api/stores
+Authorization: Bearer {{token}}
+
+### Get Store Details
+GET {{baseUrl}}/api/stores/store#s001
+Authorization: Bearer {{token}}
+
+### Get Nearby Stores
+GET {{baseUrl}}/api/stores/nearby?lat=10.7756&lng=106.7019&radius=5
+Authorization: Bearer {{token}}

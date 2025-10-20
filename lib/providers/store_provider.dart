@@ -8,7 +8,7 @@ class StoreProvider with ChangeNotifier {
   List<Store> _stores = [];
   Store? _selectedStore;
   bool _isLoading = false;
-  bool _useMockData = true; // Set to false when backend is ready
+  bool _useMockData = false; // Set to false when backend is ready
 
   StoreProvider(this._apiService);
 

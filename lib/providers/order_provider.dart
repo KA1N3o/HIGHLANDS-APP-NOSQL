@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
+import '../services/mock_data_service.dart';
 
 class OrderProvider with ChangeNotifier {
   final ApiService _apiService;
   List<Order> _orders = [];
   bool _isLoading = false;
   Order? _currentOrder;
+  bool _useMockData = false; // Set to false when backend is ready
 
   OrderProvider(this._apiService);
 
@@ -19,7 +21,14 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _orders = await _apiService.getUserOrders(userId);
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        // Load mock orders
+        _orders = MockDataService.getMockOrders();
+      } else {
+        _orders = await _apiService.getUserOrders(userId);
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -34,7 +43,17 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final createdOrder = await _apiService.createOrder(order);
+      Order createdOrder;
+      
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        // In mock mode, just return the order as-is (simulating successful creation)
+        createdOrder = order;
+      } else {
+        createdOrder = await _apiService.createOrder(order);
+      }
+      
       _orders.insert(0, createdOrder);
       _currentOrder = createdOrder;
       _isLoading = false;
@@ -71,11 +90,28 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final updatedOrder = await _apiService.updateOrderStatus(orderId, status);
-      final index = _orders.indexWhere((o) => o.id == orderId);
+      Order updatedOrder;
       
-      if (index >= 0) {
-        _orders[index] = updatedOrder;
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Find and update order in mock data
+        final orderIndex = _orders.indexWhere((o) => o.id == orderId);
+        if (orderIndex >= 0) {
+          final order = _orders[orderIndex];
+          updatedOrder = order.copyWith(status: status);
+          _orders[orderIndex] = updatedOrder;
+        } else {
+          throw Exception('Order not found');
+        }
+      } else {
+        updatedOrder = await _apiService.updateOrderStatus(orderId, status);
+        final index = _orders.indexWhere((o) => o.id == orderId);
+        
+        if (index >= 0) {
+          _orders[index] = updatedOrder;
+        }
       }
       
       if (_currentOrder?.id == orderId) {
@@ -98,6 +134,11 @@ class OrderProvider with ChangeNotifier {
 
   List<Order> getOrdersByStatus(OrderStatus status) {
     return _orders.where((order) => order.status == status).toList();
+  }
+
+  void toggleMockData(bool useMock) {
+    _useMockData = useMock;
+    notifyListeners();
   }
 }
 

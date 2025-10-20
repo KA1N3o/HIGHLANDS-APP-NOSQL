@@ -1,254 +1,250 @@
-# Highlands Coffee - Google Bigtable Backend
-
-This directory contains all the necessary scripts and documentation for setting up and managing the Google Bigtable backend for the Highlands Coffee ordering application.
-
-## Prerequisites
-
-1. **Google Cloud Project**: You need an active GCP project
-2. **gcloud CLI**: Install from https://cloud.google.com/sdk/docs/install
-3. **cbt tool**: Will be installed automatically by setup script
-4. **Billing enabled**: Bigtable requires billing to be enabled
-
-## Files
-
-- `schema.md` - Detailed database schema documentation
-- `setup.sh` - Initial setup script for creating instance and tables
-- `seed_data.sh` - Script to populate sample data
-- `queries.sh` - Common query examples and interactive query tool
-
-## Quick Start
-
-### 1. Configure Your Project
-
-Edit `setup.sh` and update the following variables:
-
-```bash
-PROJECT_ID="your-gcp-project-id"  # Your GCP project ID
-INSTANCE_ID="highlands-coffee"     # Keep as is or customize
-CLUSTER_ID="highlands-coffee-cluster"
-ZONE="asia-southeast1-a"           # Change to your preferred zone
-```
-
-### 2. Run Setup
-
-Make scripts executable and run setup:
-
-```bash
-chmod +x *.sh
-./setup.sh
-```
-
-This will:
-- Create Bigtable instance and cluster
-- Create all required tables
-- Set up column families and policies
-- Configure the cbt tool
-
-### 3. Seed Sample Data
-
-```bash
-./seed_data.sh
-```
-
-This will populate:
-- 8 sample products
-- 5 sample stores
-- 2 test users
-
-### 4. Test Queries
-
-```bash
-./queries.sh
-```
-
-This provides an interactive menu to run common queries.
-
-## Cost Estimation
-
-Bigtable pricing is based on:
-- **Nodes**: ~$0.65/hour per node (3 nodes = ~$1,400/month)
-- **Storage**: $0.17/GB per month
-- **Network egress**: Varies by usage
-
-**Development recommendation**: 
-- Start with 1 node for development (~$470/month)
-- Use Bigtable Emulator for local development (free)
-
-### Using Bigtable Emulator (Recommended for Development)
-
-```bash
-# Install emulator
-gcloud components install cbt bigtable
-
-# Start emulator
-gcloud beta emulators bigtable start
-
-# In another terminal, configure cbt
-$(gcloud beta emulators bigtable env-init)
-
-# Run setup against emulator
-./setup.sh
-```
-
-## Integration with Flutter App
-
-### Update API Service
-
-In `lib/services/api_service.dart`, update the base URL:
-
-```dart
-// For production
-static const String baseUrl = 'https://your-api-gateway.com/api';
-
-// For development with Cloud Run
-static const String baseUrl = 'https://your-cloud-run-url.run.app/api';
-```
-
-### Backend API Server
-
-You'll need to create a backend API server that:
-1. Connects to Bigtable using the Cloud Bigtable Client Library
-2. Provides REST endpoints for the Flutter app
-3. Handles authentication and authorization
-
-**Recommended stack**:
-- Node.js with Express
-- Python with Flask/FastAPI
-- Go with Gin
-
-**Example deployment**: Deploy to Cloud Run for auto-scaling
-
-## Schema Overview
-
-### Tables
-
-1. **users** - User accounts and authentication
-2. **products** - Product catalog
-3. **stores** - Store locations
-4. **orders** - Customer orders
-5. **orders_by_user** - Secondary index for user orders
-6. **sessions** - Authentication sessions
-
-See `schema.md` for detailed documentation.
-
-## Common Operations
-
-### View all tables
-```bash
-cbt ls
-```
-
-### Read table data
-```bash
-cbt read products
-cbt read stores
-cbt read users prefix=user#test001
-```
-
-### Add new product
-```bash
-cbt set products product#p999 \
-  info:name="New Product" \
-  info:price="45000" \
-  info:category="coffee"
-```
-
-### Update order status
-```bash
-cbt set orders order#12345#ord001 \
-  info:status="completed"
-```
-
-### Delete row
-```bash
-cbt deleterow orders order#12345#ord001
-```
-
-## Monitoring
-
-### View instance metrics
-```bash
-gcloud bigtable instances describe highlands-coffee
-```
-
-### Check cluster CPU usage
-```bash
-gcloud bigtable clusters describe highlands-coffee-cluster \
-  --instance=highlands-coffee
-```
-
-### View operations
-Access Cloud Console: https://console.cloud.google.com/bigtable/instances
-
-## Backup and Recovery
-
-### Create backup
-```bash
-gcloud bigtable backups create backup-$(date +%Y%m%d) \
-  --instance=highlands-coffee \
-  --cluster=highlands-coffee-cluster \
-  --table=orders \
-  --retention-period=30d
-```
-
-### Restore from backup
-```bash
-gcloud bigtable backups restore backup-20240115 \
-  --destination=orders-restored \
-  --destination-instance=highlands-coffee
-```
-
-## Security Best Practices
-
-1. **Use IAM roles** - Limit access with service accounts
-2. **Enable audit logs** - Track all database access
-3. **Encrypt data** - Use customer-managed encryption keys (CMEK)
-4. **VPC Service Controls** - Restrict network access
-5. **Regular backups** - Automate daily backups
-
-## Troubleshooting
-
-### "Permission denied" errors
-```bash
-gcloud auth application-default login
-gcloud auth login
-```
-
-### High latency
-- Check node count (may need to scale up)
-- Review row key design for hot spotting
-- Check network connectivity
-
-### "Table not found" errors
-```bash
-cbt ls  # Verify table exists
-cbt read <table_name>  # Test read access
-```
-
-## Next Steps
-
-1. **Set up backend API server** - Create REST API to interface with Bigtable
-2. **Implement authentication** - Add JWT token authentication
-3. **Set up CI/CD** - Automate deployments
-4. **Add monitoring** - Set up alerts for errors and performance
-5. **Load testing** - Test with expected traffic volume
-
-## Resources
-
-- [Bigtable Documentation](https://cloud.google.com/bigtable/docs)
-- [Schema Design Best Practices](https://cloud.google.com/bigtable/docs/schema-design)
-- [cbt CLI Reference](https://cloud.google.com/bigtable/docs/cbt-reference)
-- [Client Libraries](https://cloud.google.com/bigtable/docs/reference/libraries)
-
-## Support
-
-For issues or questions:
-1. Check `schema.md` for schema details
-2. Review query examples in `queries.sh`
-3. Consult GCP documentation
-4. Contact your development team
+# Highland Coffee - HBase Database Setup
+
+Hướng dẫn setup HBase database cho dự án Highland Coffee API.
+
+## 📋 Tổng quan
+
+Dự án sử dụng HBase (hoặc Google Cloud Bigtable) làm database chính với 10 tables:
+
+| Table | Mô tả | Column Families |
+|-------|-------|-----------------|
+| **users** | Thông tin người dùng | `profile`, `auth` |
+| **products** | Danh mục sản phẩm | `info`, `options` |
+| **stores** | Cửa hàng | `info`, `hours` |
+| **orders** | Đơn hàng | `info`, `payment`, `items` |
+| **orders_by_user** | Index user orders | `ref` |
+| **sessions** | JWT sessions | `data` (TTL: 30 days) |
+| **carts** | Giỏ hàng | `items`, `meta` |
+| **deliveries** | Giao hàng | `info` |
+| **promotions** | Khuyến mãi | `info` |
+| **payments** | Thanh toán | `info` |
 
 ---
 
-**Note**: Remember to update your project ID in all scripts before running!
+## 🚀 Quick Start (3 bước)
 
+### Bước 1: Khởi động HBase
+
+```bash
+# Linux/Mac
+$HBASE_HOME/bin/start-hbase.sh
+
+# Windows (PowerShell)
+cd $env:HBASE_HOME
+.\bin\start-hbase.cmd
+
+# Hoặc Docker
+docker run -d -p 2181:2181 -p 16010:16010 --name hbase harisekhon/hbase
+```
+
+Kiểm tra: http://localhost:16010
+
+### Bước 2: Tạo tables
+
+**Cách 1: Tự động (Linux/Mac)**
+```bash
+cd bigtable
+chmod +x setup_local_hbase.sh
+./setup_local_hbase.sh
+```
+
+**Cách 2: Thủ công (Windows/All OS)**
+```bash
+# Mở HBase shell
+hbase shell
+
+# Copy paste từng dòng trong file: create_tables_manual.txt
+# Hoặc chạy:
+```
+
+Mở file `create_tables_manual.txt` và copy-paste từng command vào HBase shell.
+
+### Bước 3: Thêm dữ liệu mẫu
+
+**Tự động:**
+```bash
+chmod +x seed_local_hbase.sh
+./seed_local_hbase.sh
+```
+
+**Thủ công:** Copy commands từ file `seed_local_hbase.sh`
+
+---
+
+## 📝 Files trong thư mục này
+
+| File | Mục đích |
+|------|----------|
+| `schema.md` | ⭐ Chi tiết cấu trúc database |
+| `QUICK_SETUP_HBASE.md` | ⭐ Hướng dẫn chi tiết từng bước |
+| `setup_local_hbase.sh` | Script tạo tables (Linux/Mac) |
+| `seed_local_hbase.sh` | Script thêm dữ liệu mẫu (Linux/Mac) |
+| `create_tables_manual.txt` | ⭐ Commands tạo tables (All OS) |
+| `setup.sh` | Setup cho Google Cloud Bigtable |
+| `seed_data.sh` | Seed data cho Google Cloud Bigtable |
+
+---
+
+## ✅ Kiểm tra sau khi setup
+
+### 1. List tables
+```bash
+hbase shell
+> list
+```
+
+Kết quả mong đợi:
+```
+carts
+deliveries
+orders
+orders_by_user
+payments
+products
+promotions
+sessions
+stores
+users
+```
+
+### 2. Xem dữ liệu
+```bash
+> scan 'products', {LIMIT => 3}
+> scan 'stores'
+> scan 'promotions'
+```
+
+### 3. Chi tiết 1 record
+```bash
+> get 'products', 'product#p001'
+```
+
+Kết quả mong đợi:
+```
+COLUMN                    CELL
+info:name                Phin Sữa Đá
+info:price               39000
+info:category            coffee
+options:sizes            ["Small","Medium","Large"]
+...
+```
+
+---
+
+## 🔧 Cấu hình Backend
+
+Sau khi tạo tables, cấu hình backend:
+
+### 1. Tạo file `backend/.env`:
+
+```env
+PORT=8080
+NODE_ENV=development
+
+# HBase Local
+HBASE_HOST=localhost
+HBASE_PORT=2181
+
+# JWT
+JWT_SECRET=your-secret-key-change-this
+JWT_EXPIRES_IN=30d
+
+# CORS
+ALLOWED_ORIGINS=*
+```
+
+### 2. Chạy backend:
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+Server chạy tại: http://localhost:8080
+
+---
+
+## 🧪 Test API
+
+### REST Client (VS Code)
+
+1. Cài extension "REST Client"
+2. Mở file `backend/test_api.http`
+3. Click "Send Request"
+
+### cURL
+
+```bash
+# Register
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"123456","name":"Test","phone":"0901234567"}'
+
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","password":"123456"}'
+
+# Get products (cần token từ login)
+curl http://localhost:8080/api/products \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+---
+
+## 📚 Tài liệu
+
+- **[schema.md](./schema.md)** - Chi tiết cấu trúc database
+- **[QUICK_SETUP_HBASE.md](./QUICK_SETUP_HBASE.md)** - Hướng dẫn setup chi tiết
+- **[../backend/API_DOCUMENTATION.md](../backend/API_DOCUMENTATION.md)** - API endpoints
+- **[../backend/README_VN.md](../backend/README_VN.md)** - Backend documentation
+
+---
+
+## 🐛 Troubleshooting
+
+### HBase không khởi động được
+```bash
+# Kiểm tra port 2181
+netstat -an | grep 2181
+
+# Xem logs
+tail -f $HBASE_HOME/logs/hbase-*.log
+```
+
+### Tables không tạo được
+```bash
+# Chạy từng command một trong HBase shell
+hbase shell
+> create 'test', 'cf'
+> list
+> drop 'test'
+```
+
+### Backend không connect được HBase
+- Kiểm tra HBase đang chạy: `jps | grep HMaster`
+- Kiểm tra file `.env` có đúng config
+- Xem logs backend để biết lỗi cụ thể
+
+---
+
+## 🎯 Next Steps
+
+1. ✅ Tạo tables trong HBase
+2. ✅ Thêm dữ liệu mẫu
+3. ✅ Chạy backend server
+4. ✅ Test các API endpoints
+5. ✅ Tích hợp với Flutter app
+6. ✅ Deploy lên production
+
+---
+
+## 📞 Support
+
+Nếu gặp vấn đề, check:
+1. HBase Web UI: http://localhost:16010
+2. Backend logs khi chạy `npm run dev`
+3. HBase logs: `$HBASE_HOME/logs/`
+
+Happy coding! 🚀

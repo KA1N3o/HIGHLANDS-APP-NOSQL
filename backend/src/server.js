@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const config = require('./config');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { requestLogger, errorLogger, performanceMonitor } = require('./middleware/logger');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -10,6 +11,10 @@ const productRoutes = require('./routes/products');
 const storeRoutes = require('./routes/stores');
 const orderRoutes = require('./routes/orders');
 const paymentRoutes = require('./routes/payments');
+const cartRoutes = require('./routes/cart');
+const deliveryRoutes = require('./routes/delivery');
+const promotionRoutes = require('./routes/promotions');
+const adminRoutes = require('./routes/admin');
 
 // Initialize Express app
 const app = express();
@@ -17,6 +22,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Logging and monitoring
+app.use(requestLogger);
+app.use(performanceMonitor);
 
 // CORS configuration
 const corsOptions = {
@@ -59,15 +68,20 @@ app.use('/api/products', productRoutes);
 app.use('/api/stores', storeRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/delivery', deliveryRoutes);
+app.use('/api/promotions', promotionRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Error handlers (must be last)
 app.use(notFoundHandler);
+app.use(errorLogger);
 app.use(errorHandler);
 
 // Start server
 const PORT = config.port;
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('========================================');
   console.log('🚀 Highlands Coffee API Server');
   console.log('========================================');
@@ -78,6 +92,7 @@ app.listen(PORT, () => {
   console.log('========================================');
   console.log(`\n✅ Server is ready at http://localhost:${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/api`);
+  console.log(`📱 Android Emulator: http://10.0.2.2:${PORT}/api`);
 });
 
 // Handle unhandled promise rejections

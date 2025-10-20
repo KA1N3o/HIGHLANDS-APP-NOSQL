@@ -101,6 +101,32 @@ cbt createtable sessions || echo "Table 'sessions' may already exist"
 cbt createfamily sessions data
 cbt setgcpolicy sessions data maxage=30d
 
+# 7. Carts table
+echo "  - Creating 'carts' table..."
+cbt createtable carts || echo "Table 'carts' may already exist"
+cbt createfamily carts items
+cbt createfamily carts meta
+cbt setgcpolicy carts items maxversions=1
+cbt setgcpolicy carts meta maxversions=1
+
+# 8. Deliveries table
+echo "  - Creating 'deliveries' table..."
+cbt createtable deliveries || echo "Table 'deliveries' may already exist"
+cbt createfamily deliveries info
+cbt setgcpolicy deliveries info maxversions=1
+
+# 9. Promotions table
+echo "  - Creating 'promotions' table..."
+cbt createtable promotions || echo "Table 'promotions' may already exist"
+cbt createfamily promotions info
+cbt setgcpolicy promotions info maxversions=1
+
+# 10. Payments table
+echo "  - Creating 'payments' table..."
+cbt createtable payments || echo "Table 'payments' may already exist"
+cbt createfamily payments info
+cbt setgcpolicy payments info maxversions=1
+
 echo ""
 echo "========================================="
 echo "Setup completed successfully!"
@@ -117,6 +143,10 @@ echo "  - stores"
 echo "  - orders"
 echo "  - orders_by_user"
 echo "  - sessions"
+echo "  - carts"
+echo "  - deliveries"
+echo "  - promotions"
+echo "  - payments"
 echo ""
 echo "Next steps:"
 echo "1. Run './seed_data.sh' to populate sample data"

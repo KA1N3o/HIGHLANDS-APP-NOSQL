@@ -7,7 +7,7 @@ class ProductProvider with ChangeNotifier {
   final ApiService _apiService;
   List<Product> _products = [];
   bool _isLoading = false;
-  bool _useMockData = true; // Set to false when backend is ready
+  bool _useMockData = false; // Set to false when backend is ready
 
   ProductProvider(this._apiService);
 
@@ -24,6 +24,10 @@ class ProductProvider with ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 500));
         _products = MockDataService.getMockProducts();
       } else {
+        // Check if we have auth token before making API call
+        if (_apiService.authToken == null) {
+          throw Exception('Authentication required. Please login first.');
+        }
         _products = await _apiService.getProducts();
       }
       
