@@ -11,6 +11,8 @@ class Product {
     this.category = data.category || 'other'; // coffee, tea, smoothie, food, pastry, merchandise
     this.isAvailable = data.isAvailable !== undefined ? data.isAvailable : true;
     this.preparationTime = data.preparationTime || 10; // minutes
+    this.rating = data.rating !== undefined ? parseFloat(data.rating) : 4.5; // 0-5 stars
+    this.reviewCount = data.reviewCount !== undefined ? parseInt(data.reviewCount) : 0;
     this.sizes = data.sizes || ['Medium', 'Large'];
     this.options = data.options || []; // [{ name: 'Đường', choices: ['Ít', 'Vừa', 'Nhiều'] }]
     this.createdAt = data.createdAt || new Date().toISOString();
@@ -27,6 +29,8 @@ class Product {
       category: this.category || 'other',
       isAvailable: this.isAvailable || false,
       preparationTime: this.preparationTime || 10,
+      rating: this.rating || 4.5,
+      reviewCount: this.reviewCount || 0,
       sizes: this.sizes || [],
       options: this.options || [],
       createdAt: this.createdAt || new Date().toISOString(),
@@ -47,6 +51,8 @@ class Product {
       category: parsedData.category || 'other',
       isAvailable: (parsedData.isAvailable === 'true') || (parsedData.isAvailable === true),
       preparationTime: parseInt(parsedData.preparationTime) || 10,
+      rating: parsedData.rating ? parseFloat(parsedData.rating) : 4.5,
+      reviewCount: parsedData.reviewCount ? parseInt(parsedData.reviewCount) : 0,
       sizes: parsedData.sizes ? JSON.parse(parsedData.sizes || '[]') : [],
       options: parsedData.options ? JSON.parse(parsedData.options || '[]') : [],
       createdAt: parsedData.createdAt || new Date().toISOString(),
