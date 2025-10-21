@@ -40,14 +40,21 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Highlands Coffee'),
         actions: [
-          // Admin button (only show for admin users)
-          if (authProvider.currentUser?.role == UserRole.admin)
+          // Admin/Staff button (show for admin and staff users)
+          if (authProvider.currentUser?.role == UserRole.admin ||
+              authProvider.currentUser?.role == UserRole.staff)
             IconButton(
-              icon: const Icon(Icons.admin_panel_settings),
+              icon: Icon(
+                authProvider.currentUser?.role == UserRole.admin
+                    ? Icons.admin_panel_settings
+                    : Icons.work_outline,
+              ),
               onPressed: () {
                 Navigator.of(context).pushNamed('/admin/orders');
               },
-              tooltip: 'Admin Panel',
+              tooltip: authProvider.currentUser?.role == UserRole.admin
+                  ? 'Admin Panel'
+                  : 'Quản lý đơn hàng',
             ),
           badges.Badge(
             badgeContent: Text(
@@ -131,7 +138,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/stores');
               },
             ),
-            // Admin menu items
+            // Staff menu items (only order management)
+            if (authProvider.currentUser?.role == UserRole.staff) ...[
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'NHÂN VIÊN',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long, color: Colors.blue),
+                title: const Text('Quản lý đơn hàng',
+                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/orders');
+                },
+              ),
+            ],
+            // Admin menu items (full access)
             if (authProvider.currentUser?.role == UserRole.admin) ...[
               const Divider(),
               Padding(
@@ -152,6 +183,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/admin/products');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.people, color: AppTheme.accentOrange),
+                title: const Text('Quản lý người dùng',
+                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/users');
                 },
               ),
               ListTile(

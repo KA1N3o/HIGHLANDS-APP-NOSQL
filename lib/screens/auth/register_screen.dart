@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/order_provider.dart';
+import '../../providers/cart_provider.dart';
 import '../../config/theme.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -33,6 +35,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (_formKey.currentState!.validate()) {
       try {
+        // Clear cached data before register to start fresh
+        context.read<OrderProvider>().clearCache();
+        context.read<CartProvider>().clear();
+        
         await context.read<AuthProvider>().register(
               _emailController.text.trim(),
               _passwordController.text,

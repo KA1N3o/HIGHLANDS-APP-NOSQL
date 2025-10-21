@@ -1,10 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/order_provider.dart';
+import '../../providers/cart_provider.dart';
+import '../../models/user.dart';
 import '../../config/theme.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh user data when opening profile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshUserData();
+    });
+  }
+
+  Future<void> _refreshUserData() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.currentUser != null) {
+      await authProvider.loadSavedAuth();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +38,13 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tài khoản'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshUserData,
+            tooltip: 'Làm mới',
+          ),
+        ],
       ),
       body: user == null
           ? const Center(child: Text('Chưa đăng nhập'))
@@ -59,13 +90,11 @@ class ProfileScreen extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: user.role == 'admin'
-                              ? AppTheme.accentOrange
-                              : AppTheme.primaryGreen,
+                          color: _getRoleBadgeColor(user.role),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          user.role == 'admin' ? 'Quản trị viên' : 'Khách hàng',
+                          _getRoleName(user.role),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -184,6 +213,28 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Color _getRoleBadgeColor(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return AppTheme.accentOrange;
+      case UserRole.staff:
+        return Colors.blue;
+      case UserRole.customer:
+        return AppTheme.primaryGreen;
+    }
+  }
+
+  String _getRoleName(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.staff:
+        return 'Nhân viên';
+      case UserRole.customer:
+        return 'Khách hàng';
+    }
+  }
+
   Widget _buildMenuItem(
     BuildContext context, {
     required IconData icon,
@@ -218,6 +269,9 @@ class ProfileScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () async {
+              // Clear all cached data when logging out
+              context.read<OrderProvider>().clearCache();
+              context.read<CartProvider>().clear();
               await context.read<AuthProvider>().logout();
               if (context.mounted) {
                 Navigator.of(context).pushNamedAndRemoveUntil(

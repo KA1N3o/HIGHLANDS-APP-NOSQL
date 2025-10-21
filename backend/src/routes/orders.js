@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const orderService = require('../services/orderService');
-const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { authMiddleware, adminMiddleware, staffMiddleware } = require('../middleware/auth');
 const { createOrderValidation, validate } = require('../middleware/validator');
 const { successResponse, errorResponse } = require('../utils/helpers');
 
@@ -77,9 +77,9 @@ router.get('/:orderId', authMiddleware, async (req, res, next) => {
 /**
  * @route   PATCH /api/orders/:orderId/status
  * @desc    Update order status
- * @access  Admin only
+ * @access  Staff and Admin
  */
-router.patch('/:orderId/status', authMiddleware, adminMiddleware, async (req, res, next) => {
+router.patch('/:orderId/status', authMiddleware, staffMiddleware, async (req, res, next) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
@@ -154,9 +154,9 @@ router.patch('/:orderId/payment', authMiddleware, async (req, res, next) => {
 /**
  * @route   GET /api/orders
  * @desc    Get all orders
- * @access  Admin only
+ * @access  Staff and Admin
  */
-router.get('/', authMiddleware, adminMiddleware, async (req, res, next) => {
+router.get('/', authMiddleware, staffMiddleware, async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     

@@ -176,14 +176,15 @@ class UserService {
     const [rows] = await usersTable.getRows({ limit });
 
     return rows.map((row) => {
-      const userData = parseRowData(row);
+      // Parse row data - data is in row.data for HBase
+      const userData = parseRowData(row.data || row);
       return {
         id: row.id,
-        email: userData.email,
-        name: userData.name,
-        phone: userData.phone,
-        role: userData.role,
-        createdAt: userData.createdAt,
+        email: userData.email || '',
+        name: userData.name || '',
+        phone: userData.phone || '',
+        role: userData.role || 'customer',
+        createdAt: userData.createdAt || new Date().toISOString(),
       };
     });
   }

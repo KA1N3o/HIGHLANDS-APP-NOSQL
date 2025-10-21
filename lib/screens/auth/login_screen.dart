@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/order_provider.dart';
+import '../../providers/cart_provider.dart';
 import '../../config/theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,6 +28,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       try {
+        // Clear cached data before login to prevent data leak between users
+        context.read<OrderProvider>().clearCache();
+        context.read<CartProvider>().clear();
+        
         final authProvider = context.read<AuthProvider>();
         await authProvider.login(
               _emailController.text.trim(),

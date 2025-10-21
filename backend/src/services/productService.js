@@ -296,38 +296,36 @@ class ProductService {
    * Save product to Bigtable
    */
   async saveProduct(product) {
+    console.log(`DEBUG saveProduct: Saving product ${product.id}`);
     const productsTable = tables.products;
     const row = productsTable.row(product.id);
 
-    const mutations = [
-      {
-        method: 'insert',
-        data: {
-          info: {
-            name: product.name,
-            description: product.description,
-            price: product.price.toString(),
-            imageUrl: product.imageUrl || '',
-            category: product.category,
-            isAvailable: product.isAvailable.toString(),
-            preparationTime: product.preparationTime.toString(),
-            createdAt: product.createdAt,
-            updatedAt: product.updatedAt,
-          },
-        },
-      },
-      {
-        method: 'insert',
-        data: {
-          options: {
-            sizes: JSON.stringify(product.sizes),
-            options: JSON.stringify(product.options),
-          },
-        },
-      },
-    ];
+    // Use createMutations helper for proper format
+    const infoMutations = createMutations('info', {
+      name: product.name,
+      description: product.description,
+      price: product.price.toString(),
+      imageUrl: product.imageUrl || '',
+      category: product.category,
+      isAvailable: product.isAvailable.toString(),
+      preparationTime: product.preparationTime.toString(),
+      rating: product.rating ? product.rating.toString() : '4.5',
+      reviewCount: product.reviewCount ? product.reviewCount.toString() : '0',
+      createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
+    });
 
-    await row.save(mutations);
+    const optionsMutations = createMutations('options', {
+      sizes: JSON.stringify(product.sizes),
+      options: JSON.stringify(product.options),
+    });
+
+    // Combine all mutations
+    const allMutations = [...infoMutations, ...optionsMutations];
+    console.log(`DEBUG saveProduct: Saving ${allMutations.length} mutations`);
+    
+    await row.save(allMutations);
+    console.log(`DEBUG saveProduct: Product ${product.id} saved successfully`);
   }
 }
 

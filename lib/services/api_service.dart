@@ -482,6 +482,82 @@ class ApiService {
     }
   }
 
+  // Admin - User Management
+  Future<List<User>> getAllUsers({int limit = 100}) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/admin/users?limit=$limit'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final data = jsonResponse['data'] as Map<String, dynamic>;
+          final List<dynamic> usersData = data['users'] as List<dynamic>;
+          return usersData.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
+        } else {
+          throw Exception('Failed to get users: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to get users: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Get users error: $e');
+    }
+  }
+
+  Future<User> updateUserInfo(String userId, Map<String, dynamic> updates) async {
+    try {
+      final encodedUserId = Uri.encodeComponent(userId);
+      final response = await _client.put(
+        Uri.parse('$baseUrl/admin/users/$encodedUserId'),
+        headers: _headers,
+        body: jsonEncode(updates),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to update user: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to update user: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Update user error: $e');
+    }
+  }
+
+  Future<User> updateUserRole(String userId, UserRole role) async {
+    try {
+      final encodedUserId = Uri.encodeComponent(userId);
+      final response = await _client.put(
+        Uri.parse('$baseUrl/admin/users/$encodedUserId/role'),
+        headers: _headers,
+        body: jsonEncode({'role': role.name}),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to update user role: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to update user role: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Update user role error: $e');
+    }
+  }
+
   // Admin - Product Management
   Future<Product> createProduct(Map<String, dynamic> productData) async {
     try {

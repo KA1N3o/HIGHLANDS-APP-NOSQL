@@ -278,6 +278,27 @@ router.get('/users', async (req, res) => {
 });
 
 /**
+ * @route   PUT /api/admin/users/:userId
+ * @desc    Update user information
+ * @access  Admin only
+ */
+router.put('/users/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const updates = req.body;
+
+    const user = await userService.updateUser(userId, updates);
+
+    res.json(successResponse(user, 'User updated successfully'));
+  } catch (error) {
+    if (error.message === 'User not found') {
+      return res.status(404).json(errorResponse(error.message, 404));
+    }
+    res.status(500).json(errorResponse(error.message, 500));
+  }
+});
+
+/**
  * @route   PUT /api/admin/users/:userId/role
  * @desc    Update user role
  * @access  Admin only
