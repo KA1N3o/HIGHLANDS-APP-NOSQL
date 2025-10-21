@@ -224,9 +224,10 @@ class OrderService {
   }
 
   /**
-   * Get orders for a specific user
+   * Get orders for a specific user (optimized with store caching)
    */
   async getUserOrders(userId, limit = 50) {
+    const startTime = Date.now();
     const ordersByUserTable = tables.ordersByUser;
     const ordersTable = tables.orders;
 
@@ -236,22 +237,82 @@ class OrderService {
       limit,
     });
 
-    const orders = [];
+    console.log(`getUserOrders: Found ${indexRows.length} index rows in ${Date.now() - startTime}ms`);
 
-    for (const indexRow of indexRows) {
+    if (indexRows.length === 0) {
+      return [];
+    }
+
+    // Fetch all order data in parallel
+    const orderPromises = indexRows.map(async (indexRow) => {
       const indexData = parseRowData(indexRow);
       const orderRowKey = indexData.orderRowKey;
-
-      // Get full order data
       const orderRow = ordersTable.row(orderRowKey);
       const [orderData] = await orderRow.get();
+      return { rowKey: orderRowKey, data: orderData };
+    });
 
-      if (orderData) {
-        const order = await this.parseOrderData(orderRowKey, orderData);
-        orders.push(order);
+    const orderResults = await Promise.all(orderPromises);
+    console.log(`getUserOrders: Fetched ${orderResults.length} orders in ${Date.now() - startTime}ms`);
+
+    // Pre-fetch all unique stores
+    const storeIds = new Set();
+    const rowData = [];
+    
+    for (const result of orderResults) {
+      if (result.data) {
+        const data = parseRowData(result.data.data || result.data);
+        if (data.storeId) {
+          storeIds.add(data.storeId);
+        }
+        
+        // Cache rowKey for future updates
+        const orderId = result.rowKey.split('#').pop();
+        if (!this._orderRowKeyCache) {
+          this._orderRowKeyCache = new Map();
+        }
+        this._orderRowKeyCache.set(orderId, result.rowKey);
+        
+        rowData.push({ id: result.rowKey, data });
       }
     }
 
+    console.log(`getUserOrders: Fetching ${storeIds.size} unique stores`);
+    
+    // Fetch all stores in parallel
+    const storeCache = new Map();
+    const storePromises = Array.from(storeIds).map(async (storeId) => {
+      try {
+        const store = await storeService.getStoreById(storeId);
+        storeCache.set(storeId, store);
+      } catch (error) {
+        console.error(`Error fetching store ${storeId}:`, error.message);
+        storeCache.set(storeId, {
+          id: storeId,
+          name: 'Unknown Store',
+          address: 'Unknown Address',
+          latitude: 0,
+          longitude: 0,
+          phone: '',
+          imageUrl: '',
+          isOpen: false,
+          openTime: '08:00',
+          closeTime: '22:00'
+        });
+      }
+    });
+    
+    await Promise.all(storePromises);
+    console.log(`getUserOrders: Stores fetched in ${Date.now() - startTime}ms`);
+
+    // Parse orders with cached stores
+    const orders = [];
+    for (const { id, data } of rowData) {
+      const order = await this.parseOrderDataWithCache(id, data, storeCache);
+      orders.push(order);
+    }
+
+    console.log(`getUserOrders: Total time ${Date.now() - startTime}ms for ${orders.length} orders`);
     return orders;
   }
 
