@@ -102,3 +102,4 @@ class Promotion {
 }
 
 module.exports = Promotion;
+

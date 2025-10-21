@@ -32,7 +32,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
 
   Future<void> _loadOrders() async {
     // Admin loads ALL orders, not just their own
-    await context.read<OrderProvider>().loadAllOrders(limit: 200);
+    // Limit to 50 for better performance
+    await context.read<OrderProvider>().loadAllOrders(limit: 50);
   }
 
   @override
@@ -56,8 +57,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildOrderList(orderProvider, [OrderStatus.pending, OrderStatus.confirmed]),
-          _buildOrderList(orderProvider, [OrderStatus.preparing]),
+          _buildOrderList(orderProvider, [OrderStatus.pending]),
+          _buildOrderList(orderProvider, [OrderStatus.confirmed, OrderStatus.preparing]),
           _buildOrderList(orderProvider, [OrderStatus.ready]),
           _buildOrderList(orderProvider, [OrderStatus.completed, OrderStatus.cancelled]),
         ],
@@ -69,6 +70,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     final orders = provider.orders
         .where((order) => statuses.contains(order.status))
         .toList();
+
+    print('Building order list for statuses: ${statuses.map((s) => s.name).join(', ')}');
+    print('Found ${orders.length} orders matching these statuses');
+    if (orders.isNotEmpty) {
+      print('Orders: ${orders.map((o) => '${o.id.substring(0, 8)}: ${o.status.name}').join(', ')}');
+    }
 
     if (provider.isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -99,6 +106,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     return RefreshIndicator(
       onRefresh: _loadOrders,
       child: ListView.builder(
+        key: ValueKey('${statuses.join('_')}_${orders.length}'),
         padding: const EdgeInsets.all(16),
         itemCount: orders.length,
         itemBuilder: (context, index) {

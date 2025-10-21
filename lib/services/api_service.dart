@@ -144,7 +144,13 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return User.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to get user: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to get user: ${response.body}');
       }
@@ -162,7 +168,13 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        return User.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to update user: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to update user: ${response.body}');
       }
@@ -340,19 +352,42 @@ class ApiService {
 
   Future<List<Order>> getAllOrders({int limit = 100}) async {
     try {
+      print('DEBUG API: Fetching orders from $baseUrl/orders?limit=$limit');
       final response = await _client.get(
         Uri.parse('$baseUrl/orders?limit=$limit'),
         headers: _headers,
       );
 
+      print('DEBUG API: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
+        print('DEBUG API: Response body length: ${response.body.length}');
+        print('DEBUG API: First 500 chars of response: ${response.body.substring(0, response.body.length > 500 ? 500 : response.body.length)}');
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
         
         // Backend returns {success: true, message: "...", data: {orders: [...], count: ...}}
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
           final dataMap = jsonResponse['data'] as Map<String, dynamic>;
           final List<dynamic> ordersData = dataMap['orders'] as List<dynamic>;
-          return ordersData.map((json) => Order.fromJson(json as Map<String, dynamic>)).toList();
+          print('DEBUG API: Got ${ordersData.length} orders from backend');
+          
+          // Parse each order and catch individual errors
+          final List<Order> orders = [];
+          for (int i = 0; i < ordersData.length; i++) {
+            try {
+              final orderJson = ordersData[i] as Map<String, dynamic>;
+              print('DEBUG API: Parsing order $i: ${orderJson['id']}');
+              final order = Order.fromJson(orderJson);
+              orders.add(order);
+            } catch (e, stackTrace) {
+              print('ERROR parsing order $i: $e');
+              print('Order JSON: ${ordersData[i]}');
+              print('Stack trace: $stackTrace');
+              // Continue to next order instead of failing completely
+            }
+          }
+          
+          print('DEBUG API: Successfully parsed ${orders.length} orders');
+          return orders;
         }
         
         throw Exception('Failed to get all orders: Invalid response format');
@@ -383,18 +418,29 @@ class ApiService {
 
   Future<Order> updateOrderStatus(String orderId, OrderStatus status) async {
     try {
+      print('DEBUG API: Updating order $orderId to status ${status.name}');
       final response = await _client.patch(
         Uri.parse('$baseUrl/orders/$orderId/status'),
         headers: _headers,
         body: jsonEncode({'status': status.name}),
       );
 
+      print('DEBUG API: Update status response: ${response.statusCode}');
       if (response.statusCode == 200) {
-        return Order.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Backend returns {success: true, message: "...", data: <order>}
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final orderData = jsonResponse['data'] as Map<String, dynamic>;
+          return Order.fromJson(orderData);
+        }
+        
+        throw Exception('Failed to update order status: Invalid response format');
       } else {
         throw Exception('Failed to update order status: ${response.body}');
       }
     } catch (e) {
+      print('ERROR updating order status: $e');
       throw Exception('Update order status error: $e');
     }
   }

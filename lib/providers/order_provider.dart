@@ -49,11 +49,15 @@ class OrderProvider with ChangeNotifier {
         // Load mock orders
         _orders = MockDataService.getMockOrders();
       } else {
+        print('DEBUG: Loading all orders with limit $limit');
         _orders = await _apiService.getAllOrders(limit: limit);
+        print('DEBUG: Successfully loaded ${_orders.length} orders');
       }
       _isLoading = false;
       notifyListeners();
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('ERROR loading orders: $e');
+      print('Stack trace: $stackTrace');
       _isLoading = false;
       notifyListeners();
       rethrow;
@@ -108,10 +112,8 @@ class OrderProvider with ChangeNotifier {
   }
 
   Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
-    _isLoading = true;
-    notifyListeners();
-
     try {
+      print('Updating order $orderId to status ${status.name}');
       Order updatedOrder;
       
       if (_useMockData) {
@@ -129,10 +131,19 @@ class OrderProvider with ChangeNotifier {
         }
       } else {
         updatedOrder = await _apiService.updateOrderStatus(orderId, status);
+        print('Received updated order from API: ${updatedOrder.id}, status: ${updatedOrder.status.name}');
+        
         final index = _orders.indexWhere((o) => o.id == orderId);
         
         if (index >= 0) {
           _orders[index] = updatedOrder;
+          print('Updated order in list at index $index');
+          print('Orders list now has ${_orders.length} orders');
+          print('Order statuses: ${_orders.map((o) => '${o.id.substring(0, 8)}: ${o.status.name}').join(', ')}');
+        } else {
+          // If not found, add it
+          _orders.add(updatedOrder);
+          print('Added updated order to list');
         }
       }
       
@@ -140,11 +151,11 @@ class OrderProvider with ChangeNotifier {
         _currentOrder = updatedOrder;
       }
       
-      _isLoading = false;
+      // Force rebuild by notifying listeners
       notifyListeners();
+      print('Order status updated successfully, notified listeners');
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
+      print('Error updating order status: $e');
       rethrow;
     }
   }

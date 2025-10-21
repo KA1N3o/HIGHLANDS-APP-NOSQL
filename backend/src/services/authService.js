@@ -77,10 +77,12 @@ class AuthService {
    * Login user
    */
   async login(email, password) {
+    const startTime = Date.now();
     const usersTable = tables.users;
 
-    // Find user by email
-    const [rows] = await usersTable.getRows();
+    // Find user by email (limit scan to improve performance)
+    const [rows] = await usersTable.getRows({ limit: 1000 });
+    console.log(`Login: Scanned ${rows.length} users in ${Date.now() - startTime}ms`);
     
     let userRow = null;
     let userData = null;
@@ -97,12 +99,24 @@ class AuthService {
     if (!userRow || !userData) {
       throw new Error('Invalid email or password');
     }
+    
+    console.log(`Login: Found user in ${Date.now() - startTime}ms`);
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, userData.passwordHash || '');
     
     if (!isValidPassword) {
       throw new Error('Invalid email or password');
+    }
+
+    // Auto-fix admin role for admin email
+    let userRole = userData.role || 'customer';
+    if (email === 'admin@highlands.vn' && userRole !== 'admin') {
+      userRole = 'admin';
+      // Update role in database
+      const roleMutation = createMutations('profile', { role: 'admin' });
+      const row = usersTable.row(userRow.id);
+      await row.save(roleMutation);
     }
 
     // Update last login
@@ -113,20 +127,23 @@ class AuthService {
     await row.save(lastLoginMutation);
 
     // Generate JWT token
-    const token = this.generateToken(userRow.id, userData.email, userData.role);
+    const token = this.generateToken(userRow.id, userData.email, userRole);
 
-    return {
+    const result = {
       user: {
         id: userRow.id || '',
         email: userData.email || '',
         name: userData.name || '',
         phone: userData.phone || '',
-        role: userData.role || 'customer',
+        role: userRole || 'customer',
         photoUrl: userData.photoUrl || null,
         createdAt: userData.createdAt || new Date().toISOString(),
       },
       token: token || '',
     };
+
+    console.log(`Login: Total time ${Date.now() - startTime}ms`);
+    return result;
   }
 
   /**

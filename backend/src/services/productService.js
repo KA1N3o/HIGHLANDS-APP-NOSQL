@@ -3,13 +3,29 @@ const { parseRowData, createMutations } = require('../utils/helpers');
 const Product = require('../models/Product');
 
 class ProductService {
+  constructor() {
+    this._productCache = {};
+  }
+
   /**
    * Get all products
    */
   async getAllProducts(availableOnly = false) {
+    const startTime = Date.now();
     const productsTable = tables.products;
     
+    // Use cache if available and fresh (5 minutes)
+    const cacheKey = `products_${availableOnly}`;
+    if (this._productCache && this._productCache[cacheKey]) {
+      const cached = this._productCache[cacheKey];
+      if (Date.now() - cached.timestamp < 5 * 60 * 1000) {
+        console.log(`Products: Returned ${cached.products.length} products from cache`);
+        return cached.products;
+      }
+    }
+    
     const [rows] = await productsTable.getRows();
+    console.log(`Products: Fetched ${rows.length} rows in ${Date.now() - startTime}ms`);
 
     let products = rows.map((row) => {
       const data = parseRowData(row.data || row);
@@ -70,6 +86,16 @@ class ProductService {
       products = products.filter(p => p.isAvailable);
     }
 
+    // Cache the results
+    if (!this._productCache) {
+      this._productCache = {};
+    }
+    this._productCache[cacheKey] = {
+      products,
+      timestamp: Date.now()
+    };
+
+    console.log(`Products: Total processing time ${Date.now() - startTime}ms, returning ${products.length} products`);
     return products;
   }
 

@@ -283,20 +283,33 @@ class OrderService {
   }
 
   /**
-   * Update order status
+   * Update order status (optimized - uses cache)
    */
   async updateOrderStatus(orderId, status) {
+    console.log(`Updating order ${orderId} to status ${status}`);
     const ordersTable = tables.orders;
 
-    // Find order
-    const [rows] = await ordersTable.getRows();
-    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
-
-    if (!orderRow) {
-      throw new Error('Order not found');
+    // Use cache if available (from recent queries)
+    if (!this._orderRowKeyCache) {
+      this._orderRowKeyCache = new Map();
     }
 
-    const row = ordersTable.row(orderRow.id);
+    let orderRowKey = this._orderRowKeyCache.get(orderId);
+    
+    // If not in cache, find it (but use limit to reduce scan)
+    if (!orderRowKey) {
+      const [rows] = await ordersTable.getRows({ limit: 100 });
+      const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+
+      if (!orderRow) {
+        throw new Error('Order not found');
+      }
+      
+      orderRowKey = orderRow.id;
+      this._orderRowKeyCache.set(orderId, orderRowKey);
+    }
+
+    const row = ordersTable.row(orderRowKey);
     
     const updateData = { status };
     
@@ -312,26 +325,45 @@ class OrderService {
     const mutations = createMutations('info', updateData);
     await row.save(mutations);
 
-    // Update delivery status if status is delivering
-    if (status === 'delivering') {
-      try {
-        const delivery = await deliveryService.getDeliveryByOrderId(orderId);
-        await deliveryService.updateDeliveryStatus(delivery.id, 'delivering');
-      } catch (error) {
-        console.log('No delivery record found for order:', orderId);
-      }
-    } else if (status === 'completed') {
-      try {
-        const delivery = await deliveryService.getDeliveryByOrderId(orderId);
-        await deliveryService.updateDeliveryStatus(delivery.id, 'delivered', {
-          actualDeliveryTime: new Date().toISOString(),
-        });
-      } catch (error) {
-        console.log('No delivery record found for order:', orderId);
-      }
+    // Update delivery status if needed (async, don't wait)
+    if (status === 'delivering' || status === 'completed') {
+      this._updateDeliveryStatus(orderId, status).catch(err => 
+        console.log('No delivery record found for order:', orderId)
+      );
     }
 
-    return this.getOrderById(orderId);
+    // Get current order data and update status field manually
+    // (HBase may not have committed the write yet if we query immediately)
+    const [currentRowData] = await row.get();
+    if (!currentRowData) {
+      throw new Error('Order not found after update');
+    }
+    
+    const updatedOrder = await this.parseOrderData(orderRowKey, currentRowData);
+    
+    // Override with the new status we just set (since DB might not reflect it yet)
+    updatedOrder.status = status;
+    if (status === 'confirmed') {
+      updatedOrder.confirmedTime = updateData.confirmedTime;
+    } else if (status === 'completed') {
+      updatedOrder.completedTime = updateData.completedTime;
+    } else if (status === 'cancelled') {
+      updatedOrder.cancelledTime = updateData.cancelledTime;
+    }
+    
+    console.log(`Updated order ${orderId} - Status set to: ${updatedOrder.status}`);
+    return updatedOrder;
+  }
+
+  async _updateDeliveryStatus(orderId, status) {
+    const delivery = await deliveryService.getDeliveryByOrderId(orderId);
+    if (status === 'delivering') {
+      await deliveryService.updateDeliveryStatus(delivery.id, 'delivering');
+    } else if (status === 'completed') {
+      await deliveryService.updateDeliveryStatus(delivery.id, 'delivered', {
+        actualDeliveryTime: new Date().toISOString(),
+      });
+    }
   }
 
   /**
@@ -400,6 +432,114 @@ class OrderService {
   }
 
   /**
+   * Parse order data with store cache (optimized for bulk operations)
+   */
+  async parseOrderDataWithCache(rowKey, data, storeCache) {
+    // Extract order ID from row key
+    const orderId = rowKey.split('#').pop();
+
+    // Parse items
+    const items = [];
+    for (const [key, value] of Object.entries(data)) {
+      if (key.startsWith('item_')) {
+        try {
+          let itemData;
+          
+          // Check if value is already an object
+          if (typeof value === 'object' && value !== null) {
+            itemData = value;
+          } else if (typeof value === 'string') {
+            // Handle escaped characters properly
+            let cleanValue = value;
+            // Handle hex escape sequences
+            cleanValue = cleanValue.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+              return String.fromCharCode(parseInt(hex, 16));
+            });
+            // Handle double escaped sequences
+            cleanValue = cleanValue.replace(/\\\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+              return String.fromCharCode(parseInt(hex, 16));
+            });
+            itemData = JSON.parse(cleanValue);
+          } else {
+            // Skip invalid value types
+            continue;
+          }
+          
+          // Convert to format expected by Flutter app
+          const cartItem = {
+            product: {
+              id: itemData.productId || '',
+              name: itemData.name || 'Unknown Product',
+              description: '',
+              price: (itemData.price || 0).toString(),
+              imageUrl: '',
+              category: 'coffee',
+              sizes: '[]',
+              options: '[]',
+              isAvailable: 'true',
+              preparationTime: '10'
+            },
+            size: itemData.size || 'Medium',
+            selectedOptions: {},
+            quantity: itemData.quantity || 0,
+            notes: itemData.notes || ''
+          };
+          items.push(cartItem);
+        } catch (error) {
+          console.error(`Error parsing item ${key}:`, error.message);
+          // Skip invalid items
+        }
+      }
+    }
+
+    // Get store from cache
+    const store = storeCache.get(data.storeId) || {
+      id: data.storeId || 'unknown',
+      name: 'Unknown Store',
+      address: 'Unknown Address',
+      latitude: 0,
+      longitude: 0,
+      phone: '',
+      imageUrl: '',
+      isOpen: false,
+      openTime: '08:00',
+      closeTime: '22:00'
+    };
+
+    return {
+      id: orderId || '',
+      userId: data.userId || '',
+      store: {
+        id: store.id || data.storeId || 'unknown',
+        name: store.name || 'Unknown Store',
+        address: store.address || 'Unknown Address',
+        latitude: store.latitude || 0,
+        longitude: store.longitude || 0,
+        phone: store.phone || '',
+        imageUrl: store.imageUrl || '',
+        isOpen: store.isOpen || false,
+        openTime: store.openTime || '08:00',
+        closeTime: store.closeTime || '22:00'
+      },
+      items: items,
+      subtotal: parseFloat(data.subtotal) || 0,
+      tax: parseFloat(data.tax) || 0,
+      deliveryFee: parseFloat(data.deliveryFee) || 0,
+      discount: parseFloat(data.discount) || 0,
+      total: parseFloat(data.total) || 0,
+      status: data.status || 'pending',
+      paymentMethod: data.method || 'cash',
+      paymentStatus: data.paymentStatus || data.status || 'pending',
+      deliveryAddress: data.deliveryAddress ? (typeof data.deliveryAddress === 'string' ? JSON.parse(data.deliveryAddress) : data.deliveryAddress) : null,
+      orderTime: data.orderTime || new Date().toISOString(),
+      pickupTime: data.pickupTime || null,
+      completedTime: data.completedTime || null,
+      notes: data.notes || '',
+      promotionCode: data.promotionCode || null,
+    };
+  }
+
+  /**
    * Parse order data from Bigtable row
    */
   async parseOrderData(rowKey, rowData) {
@@ -415,21 +555,31 @@ class OrderService {
     for (const [key, value] of Object.entries(data)) {
       if (key.startsWith('item_')) {
         try {
-          console.log(`DEBUG: Parsing item ${key}: ${value}`);
-          // Handle escaped characters properly
-          let cleanValue = value;
-          // First decode any escaped sequences
-          if (typeof value === 'string') {
+          console.log(`DEBUG: Parsing item ${key}:`, typeof value, value);
+          
+          let itemData;
+          
+          // Check if value is already an object
+          if (typeof value === 'object' && value !== null) {
+            itemData = value;
+          } else if (typeof value === 'string') {
+            // Handle escaped characters properly
+            let cleanValue = value;
             // Handle hex escape sequences
-            cleanValue = value.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
+            cleanValue = cleanValue.replace(/\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
               return String.fromCharCode(parseInt(hex, 16));
             });
             // Handle double escaped sequences
             cleanValue = cleanValue.replace(/\\\\x([0-9A-Fa-f]{2})/g, (match, hex) => {
               return String.fromCharCode(parseInt(hex, 16));
             });
+            itemData = JSON.parse(cleanValue);
+          } else {
+            // Skip invalid value types
+            console.error(`DEBUG: Unexpected value type for ${key}:`, typeof value);
+            continue;
           }
-          const itemData = JSON.parse(cleanValue);
+          
           console.log(`DEBUG: Parsed item data:`, JSON.stringify(itemData, null, 2));
           // Convert to format expected by Flutter app
           const cartItem = {
@@ -519,12 +669,62 @@ class OrderService {
     
     const [rows] = await ordersTable.getRows({ limit });
 
-    const orders = [];
+    // Initialize cache if needed
+    if (!this._orderRowKeyCache) {
+      this._orderRowKeyCache = new Map();
+    }
+
+    // Pre-fetch all unique stores to avoid N+1 queries
+    const storeIds = new Set();
+    const rowData = [];
+    
     for (const row of rows) {
-      const order = await this.parseOrderData(row.id, row);
+      const data = parseRowData(row.data || row);
+      if (data.storeId) {
+        storeIds.add(data.storeId);
+      }
+      
+      // Cache the rowKey for quick updates later
+      const orderId = row.id.split('#').pop();
+      this._orderRowKeyCache.set(orderId, row.id);
+      
+      rowData.push({ id: row.id, data });
+    }
+    
+    // Fetch all stores in parallel
+    console.log(`DEBUG: Fetching ${storeIds.size} unique stores for ${rows.length} orders`);
+    const storeCache = new Map();
+    const storePromises = Array.from(storeIds).map(async (storeId) => {
+      try {
+        const store = await storeService.getStoreById(storeId);
+        storeCache.set(storeId, store);
+      } catch (error) {
+        console.error(`Error fetching store ${storeId}:`, error.message);
+        storeCache.set(storeId, {
+          id: storeId,
+          name: 'Unknown Store',
+          address: 'Unknown Address',
+          latitude: 0,
+          longitude: 0,
+          phone: '',
+          imageUrl: '',
+          isOpen: false,
+          openTime: '08:00',
+          closeTime: '22:00'
+        });
+      }
+    });
+    
+    await Promise.all(storePromises);
+
+    // Now parse orders with cached stores
+    const orders = [];
+    for (const { id, data } of rowData) {
+      const order = await this.parseOrderDataWithCache(id, data, storeCache);
       orders.push(order);
     }
 
+    console.log(`DEBUG: Parsed ${orders.length} orders successfully`);
     return orders;
   }
 }
