@@ -50,6 +50,11 @@ function parseRowData(row) {
           // Properly decode escaped Unicode sequences using iconv-lite
           data[column] = decodeEscapedUTF8(stringValue);
         }
+        
+        // Log status column parsing
+        if (column === 'status') {
+          console.log(`parseRowData: Extracted status column from family '${family}': ${data[column]}`);
+        }
       }
     }
   }

@@ -81,13 +81,17 @@ class HBaseDockerAdapter {
         get: async () => {
           try {
             const command = `get '${tableName}', '${rowKey}'`;
+            console.log(`Executing HBase GET command: ${command}`);
             const output = await this.executeHBaseCommand(command);
+            console.log(`HBase GET output for ${rowKey}:`, output);
             
             if (output.includes('0 row(s)') || !output.trim()) {
+              console.log(`No data found for row ${rowKey}`);
               return [null];
             }
 
             const data = this.parseGetOutput(output);
+            console.log(`Parsed GET data for ${rowKey}:`, JSON.stringify(data, null, 2));
             return [data];
           } catch (error) {
             console.error(`Error getting row ${rowKey}:`, error.message);
@@ -106,7 +110,9 @@ class HBaseDockerAdapter {
                 if (mutation.method === 'insert' && mutation.data) {
                   const { columnFamily, column, value } = mutation.data;
                   const escapedValue = String(value).replace(/'/g, "\\'");
-                  putCommands.push(`put '${tableName}', '${rowKey}', '${columnFamily}:${column}', '${escapedValue}'`);
+                  const cmd = `put '${tableName}', '${rowKey}', '${columnFamily}:${column}', '${escapedValue}'`;
+                  console.log(`HBase PUT command: ${cmd}`);
+                  putCommands.push(cmd);
                 }
               });
             } else {
@@ -116,7 +122,9 @@ class HBaseDockerAdapter {
             
             // Batch all commands into one execution for better performance
             const batchCommand = putCommands.join('\n');
+            console.log(`Executing ${putCommands.length} HBase PUT commands for row ${rowKey}`);
             await this.executeHBaseCommand(batchCommand);
+            console.log(`Successfully executed HBase PUT commands for row ${rowKey}`);
           } catch (error) {
             console.error(`Error saving row ${rowKey}:`, error.message);
             throw error;
@@ -237,6 +245,11 @@ class HBaseDockerAdapter {
       if (rowMatch) {
         const [, rowKey, family, qualifier, value] = rowMatch;
         
+        // Log when we find a status column
+        if (qualifier === 'status') {
+          console.log(`parseScanOutput: Found status for row ${rowKey}: ${value}`);
+        }
+        
         // Check if we need to start a new row
         if (!currentRow || currentRow.id !== rowKey) {
           if (currentRow) {
@@ -259,6 +272,11 @@ class HBaseDockerAdapter {
           value: decodedValue,
           timestamp: Date.now()
         }];
+        
+        // Log the decoded value for status
+        if (qualifier === 'status') {
+          console.log(`parseScanOutput: Decoded status value: ${decodedValue}`);
+        }
       }
     });
     
@@ -266,6 +284,7 @@ class HBaseDockerAdapter {
       rows.push(currentRow);
     }
     
+    console.log(`parseScanOutput: Parsed ${rows.length} rows`);
     return rows;
   }
 

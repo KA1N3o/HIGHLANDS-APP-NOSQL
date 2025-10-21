@@ -351,7 +351,9 @@ class OrderService {
    * Update order status (optimized - uses cache)
    */
   async updateOrderStatus(orderId, status) {
-    console.log(`Updating order ${orderId} to status ${status}`);
+    // Normalize status value (trim whitespace and ensure lowercase)
+    const normalizedStatus = String(status).trim().toLowerCase();
+    console.log(`Updating order ${orderId} to status ${normalizedStatus}`);
     const ordersTable = tables.orders;
 
     // Use cache if available (from recent queries)
@@ -374,25 +376,33 @@ class OrderService {
       this._orderRowKeyCache.set(orderId, orderRowKey);
     }
 
+    console.log(`Found orderRowKey: ${orderRowKey}`);
     const row = ordersTable.row(orderRowKey);
     
-    const updateData = { status };
+    const updateData = { status: normalizedStatus };
     
     // Add timestamps based on status
-    if (status === 'confirmed') {
+    if (normalizedStatus === 'confirmed') {
       updateData.confirmedTime = new Date().toISOString();
-    } else if (status === 'completed') {
+    } else if (normalizedStatus === 'completed') {
       updateData.completedTime = new Date().toISOString();
-    } else if (status === 'cancelled') {
+    } else if (normalizedStatus === 'cancelled') {
       updateData.cancelledTime = new Date().toISOString();
     }
     
+    console.log(`Creating mutations with updateData:`, JSON.stringify(updateData));
     const mutations = createMutations('info', updateData);
+    console.log(`Created mutations:`, JSON.stringify(mutations, null, 2));
+    
     await row.save(mutations);
+    console.log(`Mutations saved successfully for order ${orderId}`);
+
+    // Add a small delay to ensure HBase commits the write
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Update delivery status if needed (async, don't wait)
-    if (status === 'delivering' || status === 'completed') {
-      this._updateDeliveryStatus(orderId, status).catch(err => 
+    if (normalizedStatus === 'delivering' || normalizedStatus === 'completed') {
+      this._updateDeliveryStatus(orderId, normalizedStatus).catch(err => 
         console.log('No delivery record found for order:', orderId)
       );
     }
@@ -404,15 +414,18 @@ class OrderService {
       throw new Error('Order not found after update');
     }
     
+    console.log(`Retrieved row data after update:`, JSON.stringify(currentRowData, null, 2));
+    
     const updatedOrder = await this.parseOrderData(orderRowKey, currentRowData);
+    console.log(`Parsed order status from DB: ${updatedOrder.status}`);
     
     // Override with the new status we just set (since DB might not reflect it yet)
-    updatedOrder.status = status;
-    if (status === 'confirmed') {
+    updatedOrder.status = normalizedStatus;
+    if (normalizedStatus === 'confirmed') {
       updatedOrder.confirmedTime = updateData.confirmedTime;
-    } else if (status === 'completed') {
+    } else if (normalizedStatus === 'completed') {
       updatedOrder.completedTime = updateData.completedTime;
-    } else if (status === 'cancelled') {
+    } else if (normalizedStatus === 'cancelled') {
       updatedOrder.cancelledTime = updateData.cancelledTime;
     }
     
@@ -502,6 +515,9 @@ class OrderService {
   async parseOrderDataWithCache(rowKey, data, storeCache) {
     // Extract order ID from row key
     const orderId = rowKey.split('#').pop();
+    
+    console.log(`parseOrderDataWithCache for order ${orderId.substring(0, 8)}...`);
+    console.log(`Raw data.status: ${data.status}`);
 
     // Parse items
     const items = [];
@@ -571,7 +587,7 @@ class OrderService {
       closeTime: '22:00'
     };
 
-    return {
+    const parsedOrder = {
       id: orderId || '',
       userId: data.userId || '',
       store: {
@@ -603,6 +619,9 @@ class OrderService {
       notes: data.notes || '',
       promotionCode: data.promotionCode || null,
     };
+    
+    console.log(`parseOrderDataWithCache result for ${orderId.substring(0, 8)}: status=${parsedOrder.status}`);
+    return parsedOrder;
   }
 
   /**
@@ -747,12 +766,15 @@ class OrderService {
     
     for (const row of rows) {
       const data = parseRowData(row.data || row);
+      const orderId = row.id.split('#').pop();
+      
+      console.log(`getAllOrders: Row ${orderId.substring(0, 8)} raw status from parseRowData: ${data.status}`);
+      
       if (data.storeId) {
         storeIds.add(data.storeId);
       }
       
       // Cache the rowKey for quick updates later
-      const orderId = row.id.split('#').pop();
       this._orderRowKeyCache.set(orderId, row.id);
       
       rowData.push({ id: row.id, data });

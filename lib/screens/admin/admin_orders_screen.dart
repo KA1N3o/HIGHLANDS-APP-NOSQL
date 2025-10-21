@@ -14,6 +14,7 @@ class AdminOrdersScreen extends StatefulWidget {
 class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final Map<String, bool> _loadingOrders = {}; // Track loading state per order
 
   @override
   void initState() {
@@ -300,44 +301,98 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                     if (order.status == OrderStatus.pending) ...[
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.cancelled),
+                          onPressed: _loadingOrders[order.id] == true 
+                              ? null 
+                              : () => _updateOrderStatus(order, OrderStatus.cancelled),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.errorColor,
                             side: const BorderSide(color: AppTheme.errorColor),
                           ),
-                          child: const Text('Hủy'),
+                          child: _loadingOrders[order.id] == true
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Hủy'),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         flex: 2,
                         child: ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.confirmed),
-                          child: const Text('Xác nhận'),
+                          onPressed: _loadingOrders[order.id] == true 
+                              ? null 
+                              : () => _updateOrderStatus(order, OrderStatus.confirmed),
+                          child: _loadingOrders[order.id] == true
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Xác nhận'),
                         ),
                       ),
                     ],
                     if (order.status == OrderStatus.confirmed) ...[
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.preparing),
-                          child: const Text('Bắt đầu làm'),
+                          onPressed: _loadingOrders[order.id] == true 
+                              ? null 
+                              : () => _updateOrderStatus(order, OrderStatus.preparing),
+                          child: _loadingOrders[order.id] == true
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Bắt đầu làm'),
                         ),
                       ),
                     ],
                     if (order.status == OrderStatus.preparing) ...[
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.ready),
-                          child: const Text('Hoàn thành'),
+                          onPressed: _loadingOrders[order.id] == true 
+                              ? null 
+                              : () => _updateOrderStatus(order, OrderStatus.ready),
+                          child: _loadingOrders[order.id] == true
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Hoàn thành'),
                         ),
                       ),
                     ],
                     if (order.status == OrderStatus.ready) ...[
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _updateOrderStatus(order, OrderStatus.completed),
-                          child: const Text('Đã giao'),
+                          onPressed: _loadingOrders[order.id] == true 
+                              ? null 
+                              : () => _updateOrderStatus(order, OrderStatus.completed),
+                          child: _loadingOrders[order.id] == true
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Đã giao'),
                         ),
                       ),
                     ],
@@ -352,6 +407,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
   }
 
   Future<void> _updateOrderStatus(Order order, OrderStatus newStatus) async {
+    // Set loading state
+    setState(() {
+      _loadingOrders[order.id] = true;
+    });
+
     try {
       await context.read<OrderProvider>().updateOrderStatus(order.id, newStatus);
       
@@ -371,6 +431,13 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
             backgroundColor: AppTheme.errorColor,
           ),
         );
+      }
+    } finally {
+      // Clear loading state
+      if (mounted) {
+        setState(() {
+          _loadingOrders.remove(order.id);
+        });
       }
     }
   }

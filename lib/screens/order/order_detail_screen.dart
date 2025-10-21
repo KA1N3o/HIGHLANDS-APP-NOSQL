@@ -15,6 +15,7 @@ class OrderDetailScreen extends StatefulWidget {
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late Order _order;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -36,18 +37,30 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _refreshOrder() async {
+    setState(() {
+      _isRefreshing = true;
+    });
+
     try {
       await context.read<OrderProvider>().refreshOrder(_order.id);
       final updatedOrder = context
           .read<OrderProvider>()
           .orders
           .firstWhere((o) => o.id == _order.id);
-      setState(() {
-        _order = updatedOrder;
-      });
+      if (mounted) {
+        setState(() {
+          _order = updatedOrder;
+        });
+      }
       _startAutoRefresh();
     } catch (e) {
       // Handle error silently
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -57,10 +70,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       appBar: AppBar(
         title: const Text('Chi tiết đơn hàng'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _refreshOrder,
-          ),
+          if (_isRefreshing)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _refreshOrder,
+            ),
         ],
       ),
       body: RefreshIndicator(

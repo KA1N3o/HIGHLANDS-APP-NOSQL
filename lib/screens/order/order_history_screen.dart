@@ -17,6 +17,8 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
+  bool _isReordering = false;
+
   @override
   void initState() {
     super.initState();
@@ -251,47 +253,78 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   void _showReorderDialog(Order order) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Đặt lại đơn hàng'),
-        content: Text(
-          'Bạn muốn đặt lại đơn hàng này?\n\n'
-          'Các món: ${order.items.map((i) => i.product.name).join(', ')}',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Đặt lại đơn hàng'),
+          content: Text(
+            'Bạn muốn đặt lại đơn hàng này?\n\n'
+            'Các món: ${order.items.map((i) => i.product.name).join(', ')}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isReordering ? null : () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: _isReordering
+                  ? null
+                  : () async {
+                      setState(() {
+                        _isReordering = true;
+                      });
+
+                      try {
+                        // Add items to cart
+                        final cartProvider = context.read<CartProvider>();
+                        for (final item in order.items) {
+                          // Create a new CartItem from the order item
+                          final cartItem = CartItem(
+                            product: item.product,
+                            size: item.size,
+                            selectedOptions: item.selectedOptions,
+                            notes: item.notes,
+                            quantity: item.quantity,
+                          );
+                          cartProvider.addItem(cartItem);
+                        }
+
+                        // Small delay for visual feedback
+                        await Future.delayed(const Duration(milliseconds: 500));
+
+                        if (mounted) {
+                          Navigator.pop(context);
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã thêm món vào giỏ hàng'),
+                              backgroundColor: AppTheme.successColor,
+                            ),
+                          );
+
+                          // Navigate to cart
+                          Navigator.pushNamed(context, '/cart');
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() {
+                            _isReordering = false;
+                          });
+                        }
+                      }
+                    },
+              child: _isReordering
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text('Đặt lại'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Add items to cart
-              final cartProvider = context.read<CartProvider>();
-              for (final item in order.items) {
-                // Create a new CartItem from the order item
-                final cartItem = CartItem(
-                  product: item.product,
-                  size: item.size,
-                  selectedOptions: item.selectedOptions,
-                  notes: item.notes,
-                  quantity: item.quantity,
-                );
-                cartProvider.addItem(cartItem);
-              }
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã thêm món vào giỏ hàng'),
-                  backgroundColor: AppTheme.successColor,
-                ),
-              );
-              
-              // Navigate to cart
-              Navigator.pushNamed(context, '/cart');
-            },
-            child: const Text('Đặt lại'),
-          ),
-        ],
       ),
     );
   }
