@@ -297,7 +297,14 @@ class ApiService {
       );
 
       if (response.statusCode == 201) {
-        return Order.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Backend returns {success: true, message: "...", data: {...}}
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return Order.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Create order failed: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
       } else {
         throw Exception('Failed to create order: ${response.body}');
       }
@@ -314,13 +321,46 @@ class ApiService {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body) as List<dynamic>;
-        return data.map((json) => Order.fromJson(json as Map<String, dynamic>)).toList();
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Backend returns {success: true, data: [...]}
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final List<dynamic> data = jsonResponse['data'] as List<dynamic>;
+          return data.map((json) => Order.fromJson(json as Map<String, dynamic>)).toList();
+        }
+        
+        throw Exception('Failed to get user orders: Invalid response format');
       } else {
         throw Exception('Failed to get user orders: ${response.body}');
       }
     } catch (e) {
       throw Exception('Get user orders error: $e');
+    }
+  }
+
+  Future<List<Order>> getAllOrders({int limit = 100}) async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/orders?limit=$limit'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Backend returns {success: true, message: "...", data: {orders: [...], count: ...}}
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final dataMap = jsonResponse['data'] as Map<String, dynamic>;
+          final List<dynamic> ordersData = dataMap['orders'] as List<dynamic>;
+          return ordersData.map((json) => Order.fromJson(json as Map<String, dynamic>)).toList();
+        }
+        
+        throw Exception('Failed to get all orders: Invalid response format');
+      } else {
+        throw Exception('Failed to get all orders: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Get all orders error: $e');
     }
   }
 

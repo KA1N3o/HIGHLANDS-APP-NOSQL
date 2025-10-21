@@ -38,6 +38,28 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
+  Future<void> loadAllOrders({int limit = 100}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        // Load mock orders
+        _orders = MockDataService.getMockOrders();
+      } else {
+        _orders = await _apiService.getAllOrders(limit: limit);
+      }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   Future<Order> createOrder(Order order) async {
     _isLoading = true;
     notifyListeners();

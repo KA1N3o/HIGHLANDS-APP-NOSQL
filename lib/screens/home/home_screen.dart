@@ -129,6 +129,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/stores');
               },
             ),
+            // Admin menu item
+            if (authProvider.currentUser?.role == UserRole.admin)
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings, color: AppTheme.accentOrange),
+                title: const Text('Quản lý đơn hàng',
+                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.bold)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/orders');
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.person_outline),
               title: const Text('Tài khoản'),

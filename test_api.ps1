@@ -78,3 +78,4 @@ Write-Host "  Admin: admin@highlands.vn / admin123" -ForegroundColor White
 Write-Host "  Customer: customer@test.com / customer123" -ForegroundColor White
 
 
+

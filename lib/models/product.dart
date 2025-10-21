@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Product {
   final String id;
   final String name;
@@ -24,22 +26,87 @@ class Product {
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    // Parse price - handle both string and number
+    double parsePrice(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? 0.0;
+      return 0.0;
+    }
+    
+    // Parse sizes - handle both string JSON and array
+    List<String> parseSizes(dynamic value) {
+      if (value == null) return ['Medium'];
+      if (value is List) return value.map((e) => e.toString()).toList();
+      if (value is String) {
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+        } catch (e) {
+          // If JSON decode fails, return default
+        }
+      }
+      return ['Medium'];
+    }
+    
+    // Parse options - handle both string JSON and array
+    List<ProductOption> parseOptions(dynamic value) {
+      if (value == null) return [];
+      if (value is List) {
+        return value
+            .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+      if (value is String) {
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return decoded
+                .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
+                .toList();
+          }
+        } catch (e) {
+          // If JSON decode fails, return empty
+        }
+      }
+      return [];
+    }
+    
+    // Parse boolean - handle both bool and string
+    bool parseBool(dynamic value, bool defaultValue) {
+      if (value == null) return defaultValue;
+      if (value is bool) return value;
+      if (value is String) {
+        return value.toLowerCase() == 'true' || value == '1';
+      }
+      return defaultValue;
+    }
+    
+    // Parse int - handle both int and string
+    int parseInt(dynamic value, int defaultValue) {
+      if (value == null) return defaultValue;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? defaultValue;
+      if (value is num) return value.toInt();
+      return defaultValue;
+    }
+    
     return Product(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      price: (json['price'] as num).toDouble(),
-      imageUrl: json['imageUrl'] as String,
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      price: parsePrice(json['price']),
+      imageUrl: json['imageUrl']?.toString() ?? '',
       category: ProductCategory.values.firstWhere(
         (e) => e.name == json['category'],
         orElse: () => ProductCategory.coffee,
       ),
-      sizes: (json['sizes'] as List<dynamic>).map((e) => e as String).toList(),
-      options: (json['options'] as List<dynamic>)
-          .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      isAvailable: json['isAvailable'] as bool? ?? true,
-      preparationTime: json['preparationTime'] as int? ?? 10,
+      sizes: parseSizes(json['sizes']),
+      options: parseOptions(json['options']),
+      isAvailable: parseBool(json['isAvailable'], true),
+      preparationTime: parseInt(json['preparationTime'], 10),
     );
   }
 

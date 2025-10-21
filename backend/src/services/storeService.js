@@ -21,16 +21,16 @@ class StoreService {
       const isOpen = this.isStoreOpen(openTime, closeTime);
       
       return {
-        id: row.id,
-        name: data.name || 'Unknown Store',
-        address: data.address || 'Unknown Address',
+        id: row.id || '',  // Ensure id is never null
+        name: data.name || 'Unknown Store',  // Ensure name is never null
+        address: data.address || 'Unknown Address',  // Ensure address is never null
         latitude: parseFloat(data.latitude) || 0.0,
         longitude: parseFloat(data.longitude) || 0.0,
-        phone: data.phone || '',
-        imageUrl: data.imageUrl || '',
+        phone: data.phone || '',  // Ensure phone is never null
+        imageUrl: data.imageUrl || '',  // Ensure imageUrl is never null
         isOpen: isOpen,
-        openTime: openTime,
-        closeTime: closeTime,
+        openTime: openTime || '08:00',  // Ensure openTime is never null
+        closeTime: closeTime || '22:00',  // Ensure closeTime is never null
       };
     });
   }
@@ -58,16 +58,16 @@ class StoreService {
     const isOpen = this.isStoreOpen(openTime, closeTime);
 
     return {
-      id: storeId,
-      name: storeData.name || 'Unknown Store',
-      address: storeData.address || 'Unknown Address',
+      id: storeId || '',  // Ensure id is never null
+      name: storeData.name || 'Unknown Store',  // Ensure name is never null
+      address: storeData.address || 'Unknown Address',  // Ensure address is never null
       latitude: parseFloat(storeData.latitude) || 0.0,
       longitude: parseFloat(storeData.longitude) || 0.0,
-      phone: storeData.phone || '',
-      imageUrl: storeData.imageUrl || '',
+      phone: storeData.phone || '',  // Ensure phone is never null
+      imageUrl: storeData.imageUrl || '',  // Ensure imageUrl is never null
       isOpen: isOpen,
-      openTime: openTime,
-      closeTime: closeTime,
+      openTime: openTime || '08:00',  // Ensure openTime is never null
+      closeTime: closeTime || '22:00',  // Ensure closeTime is never null
     };
   }
 
@@ -187,16 +187,16 @@ class StoreService {
     const isOpen = this.isStoreOpen(openTime, closeTime);
     
     return {
-      id: storeId,
-      name: updatedData.name,
-      address: updatedData.address,
-      latitude: parseFloat(updatedData.latitude),
-      longitude: parseFloat(updatedData.longitude),
-      phone: updatedData.phone,
-      imageUrl: updatedData.imageUrl,
+      id: storeId || '',  // Ensure id is never null
+      name: updatedData.name || 'Unknown Store',  // Ensure name is never null
+      address: updatedData.address || 'Unknown Address',  // Ensure address is never null
+      latitude: parseFloat(updatedData.latitude) || 0.0,
+      longitude: parseFloat(updatedData.longitude) || 0.0,
+      phone: updatedData.phone || '',  // Ensure phone is never null
+      imageUrl: updatedData.imageUrl || '',  // Ensure imageUrl is never null
       isOpen: isOpen,
-      openTime: openTime,
-      closeTime: closeTime,
+      openTime: openTime || '08:00',  // Ensure openTime is never null
+      closeTime: closeTime || '22:00',  // Ensure closeTime is never null
     };
   }
 }

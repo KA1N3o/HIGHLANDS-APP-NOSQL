@@ -37,12 +37,23 @@ class CartItem {
   }
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
+    // Parse selectedOptions - handle null and various formats
+    Map<String, String> parseSelectedOptions(dynamic value) {
+      if (value == null) return {};
+      if (value is Map) {
+        return Map<String, String>.from(
+          value.map((key, val) => MapEntry(key.toString(), val.toString())),
+        );
+      }
+      return {};
+    }
+    
     return CartItem(
       product: Product.fromJson(json['product'] as Map<String, dynamic>),
-      size: json['size'] as String,
-      selectedOptions: Map<String, String>.from(json['selectedOptions'] as Map),
-      notes: json['notes'] as String?,
-      quantity: json['quantity'] as int,
+      size: json['size']?.toString() ?? 'Medium',
+      selectedOptions: parseSelectedOptions(json['selectedOptions']),
+      notes: json['notes']?.toString(),
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     );
   }
 

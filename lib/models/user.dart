@@ -18,13 +18,24 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    // Parse DateTime safely
+    DateTime parseDateTime(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is String && value.isEmpty) return DateTime.now();
+      try {
+        return DateTime.parse(value.toString());
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+    
     return User(
-      id: json['id'] as String,
-      email: json['email'] as String,
-      name: json['name'] as String,
-      phone: json['phone'] as String,
-      photoUrl: json['photoUrl'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: json['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      photoUrl: json['photoUrl']?.toString(),
+      createdAt: parseDateTime(json['createdAt']),
       role: UserRole.values.firstWhere(
         (e) => e.name == json['role'],
         orElse: () => UserRole.customer,

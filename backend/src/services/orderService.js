@@ -122,7 +122,7 @@ class OrderService {
       status: 'pending',
       notes: notes || '',
       deliveryAddress: JSON.stringify(deliveryAddress || {}),
-      promotionCode: promotionCode || '',
+      promotionCode: promotionCode || null,  // Store null instead of empty string
     });
 
     const paymentMutations = createMutations('payment', {
@@ -191,7 +191,21 @@ class OrderService {
         closeTime: store.closeTime || '22:00',
       },
       items: orderItems.map(item => ({
-        ...item,
+        product: {
+          id: item.productId || '',
+          name: item.name || 'Unknown Product',
+          description: '', // Description not stored in order items
+          price: (item.price || 0).toString(), // Convert to string for Flutter
+          imageUrl: '', // Image URL not stored in order items
+          category: 'coffee', // Category not stored in order items
+          sizes: '[]', // Empty array as JSON string for Flutter
+          options: '[]', // Empty array as JSON string for Flutter
+          isAvailable: 'true', // String boolean for Flutter
+          preparationTime: '10' // String number for Flutter
+        },
+        size: item.size || 'Medium',
+        selectedOptions: {}, // Selected options not stored properly
+        quantity: item.quantity || 0,
         notes: ''  // Ensure notes is always a string
       })),
       subtotal: subtotal,
@@ -202,10 +216,10 @@ class OrderService {
       status: 'pending',
       paymentMethod: paymentMethod || 'cash',
       paymentStatus: 'pending',
-      deliveryAddress: deliveryAddress ? JSON.stringify(deliveryAddress) : '{}',
+      deliveryAddress: deliveryAddress || null,  // Return object or null, not JSON string
       orderTime: orderTime,
       notes: notes || '',
-      promotionCode: promotionCode || '',
+      promotionCode: promotionCode || null,  // Return null if not provided
     };
   }
 
@@ -423,13 +437,13 @@ class OrderService {
               id: itemData.productId || '',
               name: itemData.name || 'Unknown Product',
               description: '', // Description not stored in order items
-              price: itemData.price || 0,
+              price: (itemData.price || 0).toString(), // Convert to string for Flutter
               imageUrl: '', // Image URL not stored in order items
               category: 'coffee', // Category not stored in order items
-              sizes: [], // Sizes not stored in order items
-              options: [], // Options not stored in order items
-              isAvailable: true, // Availability not stored in order items
-              preparationTime: 10 // Preparation time not stored in order items
+              sizes: '[]', // Empty array as JSON string for Flutter
+              options: '[]', // Empty array as JSON string for Flutter
+              isAvailable: 'true', // String boolean for Flutter
+              preparationTime: '10' // String number for Flutter
             },
             size: itemData.size || 'Medium',
             selectedOptions: {}, // Selected options not stored properly
@@ -467,18 +481,33 @@ class OrderService {
     return {
       id: orderId || '',
       userId: data.userId || '',
-      store: store,
+      store: {
+        id: store.id || data.storeId || 'unknown',
+        name: store.name || 'Unknown Store',
+        address: store.address || 'Unknown Address',
+        latitude: store.latitude || 0,
+        longitude: store.longitude || 0,
+        phone: store.phone || '',
+        imageUrl: store.imageUrl || '',
+        isOpen: store.isOpen || false,
+        openTime: store.openTime || '08:00',
+        closeTime: store.closeTime || '22:00'
+      },
       items: items,
       subtotal: parseFloat(data.subtotal) || 0,
       tax: parseFloat(data.tax) || 0,
+      deliveryFee: parseFloat(data.deliveryFee) || 0,  // Add deliveryFee field
+      discount: parseFloat(data.discount) || 0,  // Add discount field
       total: parseFloat(data.total) || 0,
       status: data.status || 'pending',
       paymentMethod: data.method || 'cash',
       paymentStatus: data.paymentStatus || data.status || 'pending',
+      deliveryAddress: data.deliveryAddress ? (typeof data.deliveryAddress === 'string' ? JSON.parse(data.deliveryAddress) : data.deliveryAddress) : null,  // Parse JSON string to object or return null
       orderTime: data.orderTime || new Date().toISOString(),
-      pickupTime: data.pickupTime || '',  // Ensure pickupTime is always a string
-      completedTime: data.completedTime || '',  // Ensure completedTime is always a string
+      pickupTime: data.pickupTime || null,  // Return null instead of empty string
+      completedTime: data.completedTime || null,  // Return null instead of empty string
       notes: data.notes || '',  // Ensure notes is always a string
+      promotionCode: data.promotionCode || null,  // Return null instead of empty string
     };
   }
 

@@ -140,20 +140,20 @@ class DeliveryService {
         method: 'insert',
         data: {
           info: {
-            orderId: delivery.orderId,
-            shipperId: delivery.shipperId || '',
-            shipperName: delivery.shipperName || '',
-            shipperPhone: delivery.shipperPhone || '',
-            status: delivery.status,
-            pickupAddress: JSON.stringify(delivery.pickupAddress),
-            deliveryAddress: JSON.stringify(delivery.deliveryAddress),
+            orderId: delivery.orderId || '',
+            shipperId: delivery.shipperId !== null && delivery.shipperId !== undefined ? delivery.shipperId : '',
+            shipperName: delivery.shipperName !== null && delivery.shipperName !== undefined ? delivery.shipperName : '',
+            shipperPhone: delivery.shipperPhone !== null && delivery.shipperPhone !== undefined ? delivery.shipperPhone : '',
+            status: delivery.status || 'pending',
+            pickupAddress: JSON.stringify(delivery.pickupAddress || {}),
+            deliveryAddress: JSON.stringify(delivery.deliveryAddress || {}),
             currentLocation: delivery.currentLocation ? JSON.stringify(delivery.currentLocation) : '',
-            estimatedDeliveryTime: delivery.estimatedDeliveryTime || '',
-            actualDeliveryTime: delivery.actualDeliveryTime || '',
-            notes: delivery.notes,
-            failureReason: delivery.failureReason || '',
-            createdAt: delivery.createdAt,
-            updatedAt: delivery.updatedAt,
+            estimatedDeliveryTime: delivery.estimatedDeliveryTime !== null && delivery.estimatedDeliveryTime !== undefined ? delivery.estimatedDeliveryTime : '',
+            actualDeliveryTime: delivery.actualDeliveryTime !== null && delivery.actualDeliveryTime !== undefined ? delivery.actualDeliveryTime : '',
+            notes: delivery.notes || '',
+            failureReason: delivery.failureReason !== null && delivery.failureReason !== undefined ? delivery.failureReason : '',
+            createdAt: delivery.createdAt || new Date().toISOString(),
+            updatedAt: delivery.updatedAt || new Date().toISOString(),
           },
         },
       },
@@ -164,6 +164,7 @@ class DeliveryService {
 }
 
 module.exports = new DeliveryService();
+
 
 
 

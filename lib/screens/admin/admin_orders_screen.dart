@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/order_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
 
@@ -32,10 +31,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
   }
 
   Future<void> _loadOrders() async {
-    final userId = context.read<AuthProvider>().currentUser?.id;
-    if (userId != null) {
-      await context.read<OrderProvider>().loadUserOrders(userId);
-    }
+    // Admin loads ALL orders, not just their own
+    await context.read<OrderProvider>().loadAllOrders(limit: 200);
   }
 
   @override
