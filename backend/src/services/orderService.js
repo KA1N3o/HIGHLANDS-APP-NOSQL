@@ -16,7 +16,7 @@ class OrderService {
    * Create a new order
    */
   async createOrder(userId, orderData) {
-    const { storeId, items, paymentMethod, notes, deliveryAddress, promotionCode } = orderData;
+    const { storeId, items, paymentMethod, deliveryMethod, notes, deliveryAddress, promotionCode } = orderData;
     
     // Validate required fields
     if (!userId) {
@@ -86,7 +86,9 @@ class OrderService {
     }
 
     const tax = calculateTax(subtotal);
-    const deliveryFee = 15000; // Fixed delivery fee
+    // Calculate delivery fee based on delivery method
+    // pickup = 0, delivery = 15000
+    const deliveryFee = deliveryMethod === 'pickup' ? 0 : 15000;
     let discount = 0;
     
     // Apply promotion if provided
@@ -120,6 +122,7 @@ class OrderService {
       storeId: storeId || '',
       orderTime: orderTime || '',
       status: 'pending',
+      deliveryMethod: deliveryMethod || 'pickup',
       notes: notes || '',
       deliveryAddress: JSON.stringify(deliveryAddress || {}),
       promotionCode: promotionCode || null,  // Store null instead of empty string
@@ -216,6 +219,7 @@ class OrderService {
       status: 'pending',
       paymentMethod: paymentMethod || 'cash',
       paymentStatus: 'pending',
+      deliveryMethod: deliveryMethod || 'pickup',
       deliveryAddress: deliveryAddress || null,  // Return object or null, not JSON string
       orderTime: orderTime,
       notes: notes || '',
@@ -591,6 +595,7 @@ class OrderService {
       status: data.status || 'pending',
       paymentMethod: data.method || 'cash',
       paymentStatus: data.paymentStatus || data.status || 'pending',
+      deliveryMethod: data.deliveryMethod || 'pickup',
       deliveryAddress: data.deliveryAddress ? (typeof data.deliveryAddress === 'string' ? JSON.parse(data.deliveryAddress) : data.deliveryAddress) : null,
       orderTime: data.orderTime || new Date().toISOString(),
       pickupTime: data.pickupTime || null,
@@ -713,6 +718,7 @@ class OrderService {
       status: data.status || 'pending',
       paymentMethod: data.method || 'cash',
       paymentStatus: data.paymentStatus || data.status || 'pending',
+      deliveryMethod: data.deliveryMethod || 'pickup',
       deliveryAddress: data.deliveryAddress ? (typeof data.deliveryAddress === 'string' ? JSON.parse(data.deliveryAddress) : data.deliveryAddress) : null,  // Parse JSON string to object or return null
       orderTime: data.orderTime || new Date().toISOString(),
       pickupTime: data.pickupTime || null,  // Return null instead of empty string

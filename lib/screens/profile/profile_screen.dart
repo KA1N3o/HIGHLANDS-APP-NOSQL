@@ -87,6 +87,14 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 _buildMenuItem(
                   context,
+                  icon: Icons.history,
+                  title: 'Lịch sử mua hàng',
+                  onTap: () {
+                    Navigator.pushNamed(context, '/order-history');
+                  },
+                ),
+                _buildMenuItem(
+                  context,
                   icon: Icons.location_on,
                   title: 'Địa chỉ giao hàng',
                   onTap: () {

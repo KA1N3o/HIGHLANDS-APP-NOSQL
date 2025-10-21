@@ -92,10 +92,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         items: cartProvider.items,
         subtotal: cartProvider.subtotal,
         tax: cartProvider.tax,
+        deliveryFee: cartProvider.deliveryFee,
         total: cartProvider.total,
         status: OrderStatus.pending,
         paymentMethod: _selectedPaymentMethod,
         paymentStatus: PaymentStatus.pending,
+        deliveryMethod: cartProvider.deliveryMethod,
         orderTime: DateTime.now(),
         pickupTime: _selectedPickupTime,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
@@ -172,6 +174,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
+
+                  // Delivery method
+                  Text(
+                    'Phương thức nhận hàng',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 12),
+                  ...DeliveryMethod.values.map((method) {
+                    return Card(
+                      child: RadioListTile<DeliveryMethod>(
+                        value: method,
+                        groupValue: cartProvider.deliveryMethod,
+                        onChanged: (value) {
+                          cartProvider.setDeliveryMethod(value!);
+                        },
+                        title: Text(_getDeliveryMethodName(method)),
+                        subtitle: Text(_getDeliveryMethodDescription(method)),
+                        secondary: Icon(_getDeliveryMethodIcon(method)),
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 24),
 
                   // Pickup time
@@ -260,6 +284,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Phí giao hàng',
+                                  style: Theme.of(context).textTheme.bodyMedium),
+                              Text('${cartProvider.deliveryFee.toInt()}đ',
+                                  style: Theme.of(context).textTheme.bodyMedium),
+                            ],
+                          ),
                           const Divider(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -322,6 +356,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ],
       ),
     );
+  }
+
+  String _getDeliveryMethodName(DeliveryMethod method) {
+    switch (method) {
+      case DeliveryMethod.pickup:
+        return 'Nhận tại cửa hàng';
+      case DeliveryMethod.delivery:
+        return 'Giao tận nơi';
+    }
+  }
+
+  String _getDeliveryMethodDescription(DeliveryMethod method) {
+    switch (method) {
+      case DeliveryMethod.pickup:
+        return 'Miễn phí - Nhận hàng tại cửa hàng';
+      case DeliveryMethod.delivery:
+        return 'Phí giao hàng 15,000đ';
+    }
+  }
+
+  IconData _getDeliveryMethodIcon(DeliveryMethod method) {
+    switch (method) {
+      case DeliveryMethod.pickup:
+        return Icons.store;
+      case DeliveryMethod.delivery:
+        return Icons.delivery_dining;
+    }
   }
 
   String _getPaymentMethodName(PaymentMethod method) {

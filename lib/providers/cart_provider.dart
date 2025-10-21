@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/cart_item.dart';
+import '../models/order.dart';
 
 class CartProvider with ChangeNotifier {
   final List<CartItem> _items = [];
+  DeliveryMethod _deliveryMethod = DeliveryMethod.pickup;
 
   List<CartItem> get items => List.unmodifiable(_items);
+
+  DeliveryMethod get deliveryMethod => _deliveryMethod;
 
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
 
@@ -12,7 +16,18 @@ class CartProvider with ChangeNotifier {
 
   double get tax => subtotal * 0.08; // 8% tax
 
-  double get total => subtotal + tax;
+  double get deliveryFee {
+    // Nhận tại cửa hàng: không tính phí ship
+    // Giao tận nơi: 15,000 VND
+    return _deliveryMethod == DeliveryMethod.pickup ? 0.0 : 15000.0;
+  }
+
+  double get total => subtotal + tax + deliveryFee;
+
+  void setDeliveryMethod(DeliveryMethod method) {
+    _deliveryMethod = method;
+    notifyListeners();
+  }
 
   void addItem(CartItem item) {
     // Check if the same item already exists
@@ -47,6 +62,7 @@ class CartProvider with ChangeNotifier {
 
   void clear() {
     _items.clear();
+    _deliveryMethod = DeliveryMethod.pickup; // Reset to default
     notifyListeners();
   }
 

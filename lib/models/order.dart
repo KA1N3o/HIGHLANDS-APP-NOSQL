@@ -14,6 +14,7 @@ class Order {
   final OrderStatus status;
   final PaymentMethod paymentMethod;
   final PaymentStatus paymentStatus;
+  final DeliveryMethod deliveryMethod;
   final Map<String, dynamic>? deliveryAddress;
   final DateTime orderTime;
   final DateTime? pickupTime;
@@ -34,6 +35,7 @@ class Order {
     required this.status,
     required this.paymentMethod,
     required this.paymentStatus,
+    this.deliveryMethod = DeliveryMethod.pickup,
     this.deliveryAddress,
     required this.orderTime,
     this.pickupTime,
@@ -86,6 +88,10 @@ class Order {
         (e) => e.name == json['paymentStatus'],
         orElse: () => PaymentStatus.pending,
       ),
+      deliveryMethod: DeliveryMethod.values.firstWhere(
+        (e) => e.name == json['deliveryMethod'],
+        orElse: () => DeliveryMethod.pickup,
+      ),
       deliveryAddress: parseDeliveryAddress(json['deliveryAddress']),
       orderTime: parseDateTime(json['orderTime']) ?? DateTime.now(),
       pickupTime: parseDateTime(json['pickupTime']),
@@ -119,6 +125,7 @@ class Order {
       'status': status.name,
       'paymentMethod': paymentMethod.name,
       'paymentStatus': paymentStatus.name,
+      'deliveryMethod': deliveryMethod.name,
       'orderTime': orderTime.toIso8601String(),
       'pickupTime': pickupTime?.toIso8601String(),
       'completedTime': completedTime?.toIso8601String(),
@@ -139,6 +146,7 @@ class Order {
     OrderStatus? status,
     PaymentMethod? paymentMethod,
     PaymentStatus? paymentStatus,
+    DeliveryMethod? deliveryMethod,
     Map<String, dynamic>? deliveryAddress,
     DateTime? orderTime,
     DateTime? pickupTime,
@@ -159,6 +167,7 @@ class Order {
       status: status ?? this.status,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      deliveryMethod: deliveryMethod ?? this.deliveryMethod,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       orderTime: orderTime ?? this.orderTime,
       pickupTime: pickupTime ?? this.pickupTime,
@@ -190,5 +199,10 @@ enum PaymentStatus {
   paid,
   failed,
   refunded,
+}
+
+enum DeliveryMethod {
+  pickup,    // Nhận tại cửa hàng
+  delivery,  // Giao tận nơi
 }
 

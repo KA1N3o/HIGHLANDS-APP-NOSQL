@@ -101,6 +101,23 @@ class OrderSuccessScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
+                              'Phương thức',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            Text(
+                              _getDeliveryMethodName(order.deliveryMethod),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
                               'Thời gian nhận',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
@@ -171,6 +188,15 @@ class OrderSuccessScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getDeliveryMethodName(DeliveryMethod method) {
+    switch (method) {
+      case DeliveryMethod.pickup:
+        return 'Nhận tại cửa hàng';
+      case DeliveryMethod.delivery:
+        return 'Giao tận nơi';
+    }
   }
 }
 

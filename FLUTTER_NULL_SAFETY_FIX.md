@@ -332,3 +332,5 @@ price: parsePrice(json['price'])  // ✅ Returns 0.0
 **Status:** ✅ **COMPLETED & TESTED**
 
 
+
+

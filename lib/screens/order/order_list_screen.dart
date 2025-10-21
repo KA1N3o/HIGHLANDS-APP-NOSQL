@@ -18,9 +18,13 @@ class _OrderListScreenState extends State<OrderListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userId = context.read<AuthProvider>().currentUser?.id;
-      if (userId != null) {
-        context.read<OrderProvider>().loadUserOrders(userId);
+      // Only load if orders are empty
+      final orderProvider = context.read<OrderProvider>();
+      if (orderProvider.orders.isEmpty) {
+        final userId = context.read<AuthProvider>().currentUser?.id;
+        if (userId != null) {
+          orderProvider.loadUserOrders(userId);
+        }
       }
     });
   }

@@ -160,6 +160,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       _buildInfoRow('Cửa hàng', _order.store.name),
                       _buildInfoRow('Địa chỉ', _order.store.address),
                       _buildInfoRow('Số điện thoại', _order.store.phone),
+                      _buildInfoRow(
+                        'Phương thức nhận hàng',
+                        _getDeliveryMethodName(_order.deliveryMethod),
+                      ),
                       if (_order.pickupTime != null)
                         _buildInfoRow(
                           'Thời gian nhận',
@@ -247,6 +251,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       const Divider(height: 24),
                       _buildInfoRow('Tạm tính', '${_order.subtotal.toInt()}đ'),
                       _buildInfoRow('Thuế', '${_order.tax.toInt()}đ'),
+                      _buildInfoRow('Phí giao hàng', '${_order.deliveryFee.toInt()}đ'),
                       const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -429,6 +434,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         return 'Đơn hàng đã hoàn thành';
       case OrderStatus.cancelled:
         return 'Đơn hàng đã bị hủy';
+    }
+  }
+
+  String _getDeliveryMethodName(DeliveryMethod method) {
+    switch (method) {
+      case DeliveryMethod.pickup:
+        return 'Nhận tại cửa hàng';
+      case DeliveryMethod.delivery:
+        return 'Giao tận nơi';
     }
   }
 
