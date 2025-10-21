@@ -288,6 +288,33 @@ class _HomeScreenState extends State<HomeScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(height: 2),
+                    // Rating
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.star,
+                          size: 14,
+                          color: Colors.amber,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          product.rating.toStringAsFixed(1),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        if (product.reviewCount > 0) ...[
+                          const SizedBox(width: 2),
+                          Text(
+                            '(${product.reviewCount})',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppTheme.textSecondary,
+                                ),
+                          ),
+                        ],
+                      ],
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '${product.price.toInt()}đ',
@@ -312,8 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Cà phê';
       case ProductCategory.tea:
         return 'Trà';
-      case ProductCategory.smoothie:
-        return 'Sinh tố';
+      case ProductCategory.freeze:
+        return 'Freeze';
       case ProductCategory.food:
         return 'Món ăn';
       case ProductCategory.pastry:

@@ -11,6 +11,8 @@ class Product {
   final List<ProductOption> options;
   final bool isAvailable;
   final int preparationTime; // in minutes
+  final double rating; // Average rating (0-5)
+  final int reviewCount; // Number of reviews
 
   Product({
     required this.id,
@@ -23,15 +25,20 @@ class Product {
     required this.options,
     this.isAvailable = true,
     this.preparationTime = 10,
+    this.rating = 4.5,
+    this.reviewCount = 0,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
     // Parse price - handle both string and number
-    double parsePrice(dynamic value) {
-      if (value == null) return 0.0;
+    double parsePrice(dynamic value, {double defaultValue = 0.0}) {
+      if (value == null) return defaultValue;
       if (value is num) return value.toDouble();
-      if (value is String) return double.tryParse(value) ?? 0.0;
-      return 0.0;
+      if (value is String) {
+        final parsed = double.tryParse(value);
+        return parsed ?? defaultValue;
+      }
+      return defaultValue;
     }
     
     // Parse sizes - handle both string JSON and array
@@ -107,6 +114,8 @@ class Product {
       options: parseOptions(json['options']),
       isAvailable: parseBool(json['isAvailable'], true),
       preparationTime: parseInt(json['preparationTime'], 10),
+      rating: parsePrice(json['rating'] ?? json['averageRating'], defaultValue: 4.5),
+      reviewCount: parseInt(json['reviewCount'] ?? json['totalReviews'], 0),
     );
   }
 
@@ -158,7 +167,7 @@ class ProductOption {
 enum ProductCategory {
   coffee,
   tea,
-  smoothie,
+  freeze,
   food,
   pastry,
   merchandise,

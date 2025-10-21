@@ -104,23 +104,6 @@ class MockDataService {
         preparationTime: 12,
       ),
       Product(
-        id: 'product#p006',
-        name: 'Smoothie Xoài',
-        description: 'Sinh tố xoài tươi mát lạnh, ngọt tự nhiên',
-        price: 59000,
-        imageUrl: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625',
-        category: ProductCategory.smoothie,
-        sizes: ['Medium', 'Large'],
-        options: [
-          ProductOption(
-            name: 'Topping',
-            choices: ['Không', 'Thạch dừa', 'Trân châu'],
-            extraPrice: 10000,
-          ),
-        ],
-        preparationTime: 10,
-      ),
-      Product(
         id: 'product#p007',
         name: 'Bánh Mì Pate',
         description: 'Bánh mì Việt Nam với pate, thịt nguội và rau thơm',

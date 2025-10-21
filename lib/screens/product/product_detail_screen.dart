@@ -149,6 +149,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     fontWeight: FontWeight.bold,
                                   ),
                         ),
+                        const SizedBox(height: 12),
+                        
+                        // Rating
+                        InkWell(
+                          onTap: _showRatingDialog,
+                          child: Row(
+                            children: [
+                              ...List.generate(5, (index) {
+                                return Icon(
+                                  index < widget.product.rating.floor()
+                                      ? Icons.star
+                                      : (index < widget.product.rating
+                                          ? Icons.star_half
+                                          : Icons.star_border),
+                                  color: Colors.amber,
+                                  size: 24,
+                                );
+                              }),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${widget.product.rating.toStringAsFixed(1)} (${widget.product.reviewCount} đánh giá)',
+                                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.chevron_right, size: 20),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 16),
 
                         // Description
@@ -348,6 +378,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showRatingDialog() {
+    int selectedRating = 0;
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Đánh giá sản phẩm'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.product.name,
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return IconButton(
+                    icon: Icon(
+                      index < selectedRating ? Icons.star : Icons.star_border,
+                      color: Colors.amber,
+                      size: 40,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        selectedRating = index + 1;
+                      });
+                    },
+                  );
+                }),
+              ),
+              if (selectedRating > 0)
+                Text(
+                  '$selectedRating sao',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppTheme.primaryGreen,
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Hủy'),
+            ),
+            ElevatedButton(
+              onPressed: selectedRating > 0
+                  ? () {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Cảm ơn bạn đã đánh giá $selectedRating sao!'),
+                          backgroundColor: AppTheme.successColor,
+                        ),
+                      );
+                      // TODO: Send rating to backend API
+                    }
+                  : null,
+              child: const Text('Gửi đánh giá'),
+            ),
+          ],
+        ),
       ),
     );
   }
