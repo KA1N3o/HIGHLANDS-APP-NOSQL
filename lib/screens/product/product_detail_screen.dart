@@ -5,6 +5,7 @@ import '../../models/product.dart';
 import '../../models/cart_item.dart';
 import '../../providers/cart_provider.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -45,28 +46,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
 
-  double get _totalPrice {
-    double basePrice = widget.product.price;
+  // Giá cho 1 món (đã tính size và options, chưa tính quantity)
+  double get _pricePerItem {
+    // Giá gốc là giá của size nhỏ nhất
+    double priceForSize = widget.product.price;
+    
+    // Tính giá theo size: mỗi size lớn hơn +30% so với size trước
+    // Size 0: price, Size 1: price × 1.3, Size 2: price × 1.3 × 1.3
+    int sizeIndex = widget.product.sizes.indexOf(_selectedSize);
+    if (sizeIndex > 0) {
+      for (int i = 0; i < sizeIndex; i++) {
+        priceForSize *= 1.3;
+      }
+    }
     
     // Add extra price for options
     for (var option in widget.product.options) {
       if (_selectedOptions.containsKey(option.name)) {
-        basePrice += option.extraPrice;
+        priceForSize += option.extraPrice;
       }
     }
     
-    // Size multiplier
-    double sizeMultiplier = 1.0;
-    if (_selectedSize == 'Large') {
-      sizeMultiplier = 1.2;
-    } else if (_selectedSize == 'Small') {
-      sizeMultiplier = 0.8;
-    }
-    
-    return basePrice * sizeMultiplier * _quantity;
+    return priceForSize;
+  }
+
+  // Tổng giá (đã tính quantity)
+  double get _totalPrice {
+    return _pricePerItem * _quantity;
   }
 
   void _addToCart() {
+    // Check if product is available
+    if (!widget.product.isAvailable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sản phẩm này hiện đang tạm ngưng bán'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+
     final cartItem = CartItem(
       product: widget.product,
       size: _selectedSize,
@@ -108,25 +128,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Product image
                   AspectRatio(
                     aspectRatio: 1,
-                    child: CachedNetworkImage(
-                      imageUrl: widget.product.imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: AppTheme.backgroundColor,
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
-                      errorWidget: (context, url, error) {
-                        return Container(
-                          color: AppTheme.backgroundColor,
-                          child: const Icon(
-                            Icons.coffee,
-                            size: 100,
-                            color: AppTheme.textSecondary,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        CachedNetworkImage(
+                          imageUrl: widget.product.imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            color: AppTheme.backgroundColor,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
                           ),
-                        );
-                      },
+                          errorWidget: (context, url, error) {
+                            return Container(
+                              color: AppTheme.backgroundColor,
+                              child: const Icon(
+                                Icons.coffee,
+                                size: 100,
+                                color: AppTheme.textSecondary,
+                              ),
+                            );
+                          },
+                        ),
+                        // Unavailable overlay
+                        if (!widget.product.isAvailable)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.remove_shopping_cart,
+                                    color: Colors.white,
+                                    size: 64,
+                                  ),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'TẠM NGƯNG BÁN',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
 
@@ -142,7 +193,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          '${widget.product.price.toInt()}đ',
+                          _pricePerItem.toCurrency(),
                           style:
                               Theme.of(context).textTheme.headlineMedium?.copyWith(
                                     color: AppTheme.primaryGreen,
@@ -355,7 +406,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Theme.of(context).textTheme.bodySmall,
                         ),
                         Text(
-                          '${_totalPrice.toInt()}đ',
+                          _totalPrice.toCurrency(),
                           style:
                               Theme.of(context).textTheme.headlineMedium?.copyWith(
                                     color: AppTheme.primaryGreen,
@@ -368,9 +419,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _addToCart,
-                      icon: const Icon(Icons.shopping_cart_outlined),
-                      label: const Text('Thêm vào giỏ'),
+                      onPressed: widget.product.isAvailable ? _addToCart : null,
+                      icon: Icon(
+                        widget.product.isAvailable 
+                            ? Icons.shopping_cart_outlined 
+                            : Icons.remove_shopping_cart,
+                      ),
+                      label: Text(
+                        widget.product.isAvailable 
+                            ? 'Thêm vào giỏ' 
+                            : 'Tạm ngưng bán',
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.product.isAvailable 
+                            ? null 
+                            : Colors.grey,
+                      ),
                     ),
                   ),
                 ],

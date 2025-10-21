@@ -105,14 +105,21 @@ class ProductService {
    * Get product by ID
    */
   async getProductById(productId) {
+    console.log(`DEBUG: Getting product by ID: ${productId}`);
     const productsTable = tables.products;
     const row = productsTable.row(productId);
 
     const [data] = await row.get();
     
     if (!data) {
+      console.log(`DEBUG: Product not found with ID: ${productId}`);
+      // Try to list all products to debug
+      const [allRows] = await productsTable.getRows({ limit: 10 });
+      console.log(`DEBUG: First 10 product IDs in database:`, allRows.map(r => r.id));
       throw new Error('Product not found');
     }
+    
+    console.log(`DEBUG: Found product data for ${productId}`);
 
     const productData = parseRowData(data.data || data);
     
@@ -198,7 +205,12 @@ class ProductService {
    */
   async createProduct(productData) {
     const product = new Product(productData);
+    console.log(`DEBUG: Creating product with ID: ${product.id}`);
     await this.saveProduct(product);
+    
+    // Clear cache after creating
+    this._productCache = {};
+    
     return product.toJSON();
   }
 
@@ -206,7 +218,14 @@ class ProductService {
    * Update product (admin only)
    */
   async updateProduct(productId, updates) {
+    console.log(`DEBUG: Updating product with ID: ${productId}`);
+    console.log(`DEBUG: Updates:`, JSON.stringify(updates, null, 2));
+    
+    // Clear cache before update
+    this._productCache = {};
+    
     const product = await this.getProductById(productId);
+    console.log(`DEBUG: Found product:`, JSON.stringify(product, null, 2));
 
     // Update allowed fields
     const allowedFields = [
@@ -243,6 +262,10 @@ class ProductService {
     const infoMutations = createMutations('info', mutations);
     await row.save(infoMutations);
 
+    // Clear cache after update
+    this._productCache = {};
+    
+    console.log(`DEBUG: Product updated successfully`);
     return this.getProductById(productId);
   }
 
@@ -250,16 +273,23 @@ class ProductService {
    * Delete product (admin only)
    */
   async deleteProduct(productId) {
+    console.log(`DEBUG: Deleting product with ID: ${productId}`);
     const productsTable = tables.products;
     const row = productsTable.row(productId);
     
     // Check if exists
     const [data] = await row.get();
     if (!data) {
+      console.log(`DEBUG: Product not found for deletion: ${productId}`);
       throw new Error('Product not found');
     }
 
     await row.delete();
+    
+    // Clear cache after deletion
+    this._productCache = {};
+    
+    console.log(`DEBUG: Product deleted successfully`);
   }
 
   /**

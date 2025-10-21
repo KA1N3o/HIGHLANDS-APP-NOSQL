@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 import '../order/order_success_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -27,6 +28,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     // Default pickup time: 20 minutes from now
     _selectedPickupTime = DateTime.now().add(const Duration(minutes: 20));
+    
+    // Check authentication on init (only for debugging, actual check is in _placeOrder)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      print('DEBUG CheckoutScreen init: User = ${authProvider.currentUser?.email}, Token exists = ${authProvider.authToken != null}');
+    });
   }
 
   @override
@@ -81,8 +88,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception('Vui lòng chọn cửa hàng');
       }
 
+      // Debug: Check token
+      print('DEBUG _placeOrder: User = ${authProvider.currentUser?.email}');
+      print('DEBUG _placeOrder: Token exists = ${authProvider.authToken != null}');
+      
       if (authProvider.currentUser == null) {
-        throw Exception('Vui lòng đăng nhập');
+        throw Exception('Vui lòng đăng nhập để tiếp tục');
+      }
+      
+      if (authProvider.authToken == null) {
+        throw Exception('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại');
       }
 
       final order = Order(
@@ -128,12 +143,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _isProcessing = false;
         });
 
+        String errorMessage = 'Đặt hàng thất bại';
+        bool shouldRedirectToLogin = false;
+        
+        // Parse error for better user message
+        final errorStr = e.toString();
+        if (errorStr.contains('No token provided') || 
+            errorStr.contains('401') || 
+            errorStr.contains('Unauthorized')) {
+          errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại';
+          shouldRedirectToLogin = true;
+        } else if (errorStr.contains('network') || 
+                   errorStr.contains('SocketException') ||
+                   errorStr.contains('Connection')) {
+          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng';
+        } else if (errorStr.contains('Vui lòng')) {
+          errorMessage = errorStr.replaceAll('Exception: ', '');
+        } else {
+          errorMessage = 'Đặt hàng thất bại. Vui lòng thử lại sau';
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đặt hàng thất bại: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: AppTheme.errorColor,
+            duration: const Duration(seconds: 3),
           ),
         );
+        
+        // Redirect to login if auth error
+        if (shouldRedirectToLogin) {
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              Navigator.of(context).pushReplacementNamed('/login');
+            }
+          });
+        }
       }
     }
   }
@@ -270,7 +315,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             children: [
                               Text('Tạm tính',
                                   style: Theme.of(context).textTheme.bodyMedium),
-                              Text('${cartProvider.subtotal.toInt()}đ',
+                              Text(cartProvider.subtotal.toCurrency(),
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
@@ -280,7 +325,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             children: [
                               Text('Thuế (8%)',
                                   style: Theme.of(context).textTheme.bodyMedium),
-                              Text('${cartProvider.tax.toInt()}đ',
+                              Text(cartProvider.tax.toCurrency(),
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
@@ -290,7 +335,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             children: [
                               Text('Phí giao hàng',
                                   style: Theme.of(context).textTheme.bodyMedium),
-                              Text('${cartProvider.deliveryFee.toInt()}đ',
+                              Text(cartProvider.deliveryFee.toCurrency(),
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
@@ -301,7 +346,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               Text('Tổng cộng',
                                   style: Theme.of(context).textTheme.titleLarge),
                               Text(
-                                '${cartProvider.total.toInt()}đ',
+                                cartProvider.total.toCurrency(),
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleLarge

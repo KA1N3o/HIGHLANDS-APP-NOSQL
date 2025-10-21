@@ -7,6 +7,7 @@ import '../../providers/cart_provider.dart';
 import '../../models/order.dart';
 import '../../models/cart_item.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 import 'order_detail_screen.dart';
 
 class OrderHistoryScreen extends StatefulWidget {
@@ -208,7 +209,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${order.total.toInt()}đ',
+                    order.total.toCurrency(),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: AppTheme.primaryGreen,
                           fontWeight: FontWeight.bold,

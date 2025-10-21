@@ -139,12 +139,28 @@ class AuthProvider with ChangeNotifier {
       final token = prefs.getString('auth_token');
       final userId = prefs.getString('user_id');
 
+      print('DEBUG loadSavedAuth: token exists = ${token != null}, userId = $userId');
+
       if (token != null && userId != null) {
         _authToken = token;
         _apiService.setAuthToken(token);
-        _currentUser = await _apiService.getUser(userId);
+        print('DEBUG loadSavedAuth: Token set to ApiService');
+        
+        try {
+          _currentUser = await _apiService.getUser(userId);
+          print('DEBUG loadSavedAuth: User loaded successfully: ${_currentUser?.email}');
+        } catch (e) {
+          print('DEBUG loadSavedAuth: Failed to load user, but keeping token: $e');
+          // Keep the token even if user loading fails (might be network issue)
+          // Only logout if it's an auth error (401)
+          if (e.toString().contains('401') || e.toString().contains('Unauthorized')) {
+            print('DEBUG loadSavedAuth: Auth error, logging out');
+            await logout();
+          }
+        }
       }
     } catch (e) {
+      print('ERROR loadSavedAuth: $e');
       // If loading saved auth fails, clear it
       await logout();
     } finally {

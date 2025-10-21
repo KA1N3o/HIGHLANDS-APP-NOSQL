@@ -76,5 +76,46 @@ class ProductProvider with ChangeNotifier {
     _useMockData = useMock;
     notifyListeners();
   }
+
+  // Admin methods
+  Future<void> createProduct(Map<String, dynamic> productData) async {
+    try {
+      final product = await _apiService.createProduct(productData);
+      _products.add(product);
+      _lastLoadTime = DateTime.now();
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateProduct(String productId, Map<String, dynamic> updates) async {
+    try {
+      print('DEBUG: Updating product with ID: $productId');
+      print('DEBUG: Updates: $updates');
+      final updatedProduct = await _apiService.updateProduct(productId, updates);
+      final index = _products.indexWhere((p) => p.id == productId);
+      if (index != -1) {
+        _products[index] = updatedProduct;
+        _lastLoadTime = DateTime.now();
+        notifyListeners();
+      }
+      print('DEBUG: Product updated successfully');
+    } catch (e) {
+      print('DEBUG: Error updating product: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    try {
+      await _apiService.deleteProduct(productId);
+      _products.removeWhere((p) => p.id == productId);
+      _lastLoadTime = DateTime.now();
+      notifyListeners();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 

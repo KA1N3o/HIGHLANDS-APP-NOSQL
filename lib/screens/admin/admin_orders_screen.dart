@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({super.key});
@@ -298,7 +299,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      '${order.total.toInt()}đ',
+                      order.total.toCurrency(),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             color: AppTheme.primaryGreen,
                             fontWeight: FontWeight.bold,

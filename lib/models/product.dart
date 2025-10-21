@@ -63,6 +63,7 @@ class Product {
       if (value == null) return [];
       if (value is List) {
         return value
+            .whereType<Map<String, dynamic>>()
             .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
             .toList();
       }
@@ -71,11 +72,13 @@ class Product {
           final decoded = jsonDecode(value);
           if (decoded is List) {
             return decoded
+                .whereType<Map<String, dynamic>>()
                 .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
                 .toList();
           }
         } catch (e) {
           // If JSON decode fails, return empty
+          print('DEBUG: Error parsing options: $e');
         }
       }
       return [];
@@ -147,12 +150,23 @@ class ProductOption {
   });
 
   factory ProductOption.fromJson(Map<String, dynamic> json) {
-    return ProductOption(
-      name: json['name'] as String,
-      choices:
-          (json['choices'] as List<dynamic>).map((e) => e as String).toList(),
-      extraPrice: (json['extraPrice'] as num?)?.toDouble() ?? 0,
-    );
+    try {
+      return ProductOption(
+        name: json['name']?.toString() ?? '',
+        choices: json['choices'] is List
+            ? (json['choices'] as List).map((e) => e.toString()).toList()
+            : [],
+        extraPrice: json['extraPrice'] is num
+            ? (json['extraPrice'] as num).toDouble()
+            : (json['extraPrice'] is String
+                ? double.tryParse(json['extraPrice']) ?? 0
+                : 0),
+      );
+    } catch (e) {
+      print('DEBUG: Error in ProductOption.fromJson: $e');
+      print('DEBUG: JSON was: $json');
+      return ProductOption(name: '', choices: []);
+    }
   }
 
   Map<String, dynamic> toJson() {

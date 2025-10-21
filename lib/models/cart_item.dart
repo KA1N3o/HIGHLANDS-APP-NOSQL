@@ -16,24 +16,26 @@ class CartItem {
   });
 
   double get totalPrice {
-    double basePrice = product.price;
+    // Giá gốc là giá của size nhỏ nhất
+    double priceForSize = product.price;
+    
+    // Tính giá theo size: mỗi size lớn hơn +30% so với size trước
+    // Size 0: price, Size 1: price × 1.3, Size 2: price × 1.3 × 1.3
+    int sizeIndex = product.sizes.indexOf(size);
+    if (sizeIndex > 0) {
+      for (int i = 0; i < sizeIndex; i++) {
+        priceForSize *= 1.3;
+      }
+    }
     
     // Add extra price for options
     for (var option in product.options) {
       if (selectedOptions.containsKey(option.name)) {
-        basePrice += option.extraPrice;
+        priceForSize += option.extraPrice;
       }
     }
     
-    // Size multiplier (example: Medium = 1x, Large = 1.2x)
-    double sizeMultiplier = 1.0;
-    if (size == 'Large') {
-      sizeMultiplier = 1.2;
-    } else if (size == 'Small') {
-      sizeMultiplier = 0.8;
-    }
-    
-    return basePrice * sizeMultiplier * quantity;
+    return priceForSize * quantity;
   }
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -99,4 +101,5 @@ class CartItem {
     return true;
   }
 }
+
 

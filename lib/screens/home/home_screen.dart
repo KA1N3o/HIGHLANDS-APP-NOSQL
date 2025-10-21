@@ -8,6 +8,7 @@ import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../config/theme.dart';
 import '../../widgets/cached_image.dart';
+import '../../utils/currency_formatter.dart';
 import '../product/product_detail_screen.dart';
 import '../cart/cart_screen.dart';
 
@@ -130,17 +131,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/stores');
               },
             ),
-            // Admin menu item
-            if (authProvider.currentUser?.role == UserRole.admin)
+            // Admin menu items
+            if (authProvider.currentUser?.role == UserRole.admin) ...[
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  'QUẢN TRỊ',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
               ListTile(
-                leading: const Icon(Icons.admin_panel_settings, color: AppTheme.accentOrange),
+                leading: const Icon(Icons.shopping_bag, color: AppTheme.accentOrange),
+                title: const Text('Quản lý sản phẩm',
+                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/products');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.receipt_long, color: AppTheme.accentOrange),
                 title: const Text('Quản lý đơn hàng',
-                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.bold)),
+                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w600)),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.pushNamed(context, '/admin/orders');
                 },
               ),
+            ],
             ListTile(
               leading: const Icon(Icons.person_outline),
               title: const Text('Tài khoản'),
@@ -252,83 +275,134 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildProductCard(Product product) {
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailScreen(product: product),
-            ),
-          );
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Product image
-            AspectRatio(
-              aspectRatio: 1,
-              child: CachedImage(
-                imageUrl: product.imageUrl,
-                fit: BoxFit.cover,
-              ),
-            ),
-            
-            // Product info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        product.name,
-                        style: Theme.of(context).textTheme.titleSmall,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+      child: Stack(
+        children: [
+          InkWell(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailScreen(product: product),
+                ),
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product image
+                AspectRatio(
+                  aspectRatio: 1,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedImage(
+                        imageUrl: product.imageUrl,
+                        fit: BoxFit.cover,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    // Rating
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          size: 14,
-                          color: Colors.amber,
+                      // Unavailable overlay
+                      if (!product.isAvailable)
+                        Container(
+                          color: Colors.black54,
+                          child: const Center(
+                            child: Text(
+                              'TẠM HẾT',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 2),
+                    ],
+                  ),
+                ),
+                
+                // Product info
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            product.name,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: product.isAvailable 
+                                  ? AppTheme.textPrimary 
+                                  : AppTheme.textSecondary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        // Rating
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              product.rating.toStringAsFixed(1),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            if (product.reviewCount > 0) ...[
+                              const SizedBox(width: 2),
+                              Text(
+                                '(${product.reviewCount})',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppTheme.textSecondary,
+                                    ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Text(
-                          product.rating.toStringAsFixed(1),
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
+                          product.price.toCurrency(),
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: product.isAvailable 
+                                    ? AppTheme.primaryGreen 
+                                    : AppTheme.textSecondary,
+                                fontWeight: FontWeight.bold,
                               ),
                         ),
-                        if (product.reviewCount > 0) ...[
-                          const SizedBox(width: 2),
-                          Text(
-                            '(${product.reviewCount})',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppTheme.textSecondary,
-                                ),
-                          ),
-                        ],
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${product.price.toInt()}đ',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: AppTheme.primaryGreen,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Unavailable badge
+          if (!product.isAvailable)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Tạm ngưng',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

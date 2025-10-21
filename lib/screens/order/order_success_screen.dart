@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 import 'order_detail_screen.dart';
 
 class OrderSuccessScreen extends StatelessWidget {
@@ -141,7 +142,7 @@ class OrderSuccessScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             Text(
-                              '${order.total.toInt()}đ',
+                              order.total.toCurrency(),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium

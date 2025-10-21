@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/store_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 import '../checkout/checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -235,7 +237,7 @@ class CartScreen extends StatelessWidget {
                                         ),
                                         const Spacer(),
                                         Text(
-                                          '${item.totalPrice.toInt()}đ',
+                                          item.totalPrice.toCurrency(),
                                           style: Theme.of(context)
                                               .textTheme
                                               .titleMedium
@@ -290,7 +292,7 @@ class CartScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             Text(
-                              '${cartProvider.subtotal.toInt()}đ',
+                              cartProvider.subtotal.toCurrency(),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -304,7 +306,7 @@ class CartScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             Text(
-                              '${cartProvider.tax.toInt()}đ',
+                              cartProvider.tax.toCurrency(),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -318,7 +320,7 @@ class CartScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                             Text(
-                              '${cartProvider.deliveryFee.toInt()}đ',
+                              cartProvider.deliveryFee.toCurrency(),
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -332,7 +334,7 @@ class CartScreen extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             Text(
-                              '${cartProvider.total.toInt()}đ',
+                              cartProvider.total.toCurrency(),
                               style: Theme.of(context)
                                   .textTheme
                                   .titleLarge
@@ -357,6 +359,11 @@ class CartScreen extends StatelessWidget {
                                 );
                                 Navigator.pushNamed(context, '/stores');
                               } else {
+                                // Debug: Check auth before navigating to checkout
+                                final authProvider = context.read<AuthProvider>();
+                                print('DEBUG Cart->Checkout: User = ${authProvider.currentUser?.email}');
+                                print('DEBUG Cart->Checkout: Token exists = ${authProvider.authToken != null}');
+                                
                                 Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => const CheckoutScreen(),

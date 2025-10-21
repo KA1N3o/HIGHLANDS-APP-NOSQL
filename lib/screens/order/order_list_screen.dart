@@ -4,6 +4,7 @@ import '../../providers/order_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 import 'order_detail_screen.dart';
 
 class OrderListScreen extends StatefulWidget {
@@ -193,7 +194,7 @@ class _OrderListScreenState extends State<OrderListScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${order.total.toInt()}đ',
+                    order.total.toCurrency(),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           color: AppTheme.primaryGreen,
                           fontWeight: FontWeight.bold,

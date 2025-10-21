@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../config/theme.dart';
+import '../../utils/currency_formatter.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
@@ -277,7 +278,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                               Text(
-                                '${item.totalPrice.toInt()}đ',
+                                item.totalPrice.toCurrency(),
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyMedium
@@ -288,9 +289,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         );
                       }),
                       const Divider(height: 24),
-                      _buildInfoRow('Tạm tính', '${_order.subtotal.toInt()}đ'),
-                      _buildInfoRow('Thuế', '${_order.tax.toInt()}đ'),
-                      _buildInfoRow('Phí giao hàng', '${_order.deliveryFee.toInt()}đ'),
+                      _buildInfoRow('Tạm tính', _order.subtotal.toCurrency()),
+                      _buildInfoRow('Thuế', _order.tax.toCurrency()),
+                      _buildInfoRow('Phí giao hàng', _order.deliveryFee.toCurrency()),
                       const Divider(height: 24),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -300,7 +301,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           Text(
-                            '${_order.total.toInt()}đ',
+                            _order.total.toCurrency(),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium

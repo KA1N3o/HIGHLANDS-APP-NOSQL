@@ -307,6 +307,9 @@ class ApiService {
   // Orders
   Future<Order> createOrder(Order order) async {
     try {
+      print('DEBUG createOrder: Token = ${_authToken != null ? "EXISTS" : "NULL"}');
+      print('DEBUG createOrder: Headers = $_headers');
+      
       final response = await _client.post(
         Uri.parse('$baseUrl/orders'),
         headers: _headers,
@@ -476,6 +479,95 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Payment error: $e');
+    }
+  }
+
+  // Admin - Product Management
+  Future<Product> createProduct(Map<String, dynamic> productData) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/admin/products'),
+        headers: _headers,
+        body: jsonEncode(productData),
+      );
+
+      if (response.statusCode == 201) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return Product.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to create product: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to create product: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Create product error: $e');
+    }
+  }
+
+  Future<Product> updateProduct(String productId, Map<String, dynamic> updates) async {
+    try {
+      // URL encode the product ID to handle special characters like #
+      final encodedProductId = Uri.encodeComponent(productId);
+      print('DEBUG API: Updating product ID: $productId');
+      print('DEBUG API: Encoded ID: $encodedProductId');
+      print('DEBUG API: URL: $baseUrl/admin/products/$encodedProductId');
+      print('DEBUG API: Updates: $updates');
+      
+      final response = await _client.put(
+        Uri.parse('$baseUrl/admin/products/$encodedProductId'),
+        headers: _headers,
+        body: jsonEncode(updates),
+      );
+
+      print('DEBUG API: Response status: ${response.statusCode}');
+      print('DEBUG API: Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        print('DEBUG API: Parsed JSON response: $jsonResponse');
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          print('DEBUG API: Product data: ${jsonResponse['data']}');
+          print('DEBUG API: Product data type: ${jsonResponse['data'].runtimeType}');
+          
+          // Ensure data is a Map
+          final productData = jsonResponse['data'];
+          if (productData is! Map<String, dynamic>) {
+            throw Exception('Product data is not a Map: ${productData.runtimeType}');
+          }
+          
+          return Product.fromJson(productData);
+        } else {
+          throw Exception('Failed to update product: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to update product: ${response.body}');
+      }
+    } catch (e) {
+      print('DEBUG API: Error: $e');
+      throw Exception('Update product error: $e');
+    }
+  }
+
+  Future<void> deleteProduct(String productId) async {
+    try {
+      // URL encode the product ID to handle special characters like #
+      final encodedProductId = Uri.encodeComponent(productId);
+      print('DEBUG API: Deleting product ID: $productId (encoded: $encodedProductId)');
+      
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/admin/products/$encodedProductId'),
+        headers: _headers,
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete product: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Delete product error: $e');
     }
   }
 

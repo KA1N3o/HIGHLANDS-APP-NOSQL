@@ -26,15 +26,22 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       try {
-        await context.read<AuthProvider>().login(
+        final authProvider = context.read<AuthProvider>();
+        await authProvider.login(
               _emailController.text.trim(),
               _passwordController.text,
             );
+        
+        // Debug: Check if login was successful
+        print('DEBUG Login: Success! User = ${authProvider.currentUser?.email}');
+        print('DEBUG Login: Token exists = ${authProvider.authToken != null}');
+        print('DEBUG Login: Token length = ${authProvider.authToken?.length ?? 0}');
         
         if (mounted) {
           Navigator.of(context).pushReplacementNamed('/home');
         }
       } catch (e) {
+        print('ERROR Login: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
