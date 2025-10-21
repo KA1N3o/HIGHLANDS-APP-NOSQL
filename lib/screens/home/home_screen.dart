@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../config/theme.dart';
+import '../../widgets/cached_image.dart';
 import '../product/product_detail_screen.dart';
 import '../cart/cart_screen.dart';
 
@@ -265,19 +266,9 @@ class _HomeScreenState extends State<HomeScreen> {
             // Product image
             AspectRatio(
               aspectRatio: 1,
-              child: Image.network(
-                product.imageUrl,
+              child: CachedImage(
+                imageUrl: product.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: AppTheme.backgroundColor,
-                    child: const Icon(
-                      Icons.coffee,
-                      size: 48,
-                      color: AppTheme.textSecondary,
-                    ),
-                  );
-                },
               ),
             ),
             

@@ -327,8 +327,10 @@ class ApiService {
 
   Future<List<Order>> getUserOrders(String userId) async {
     try {
+      // URL encode userId to handle special characters like #
+      final encodedUserId = Uri.encodeComponent(userId);
       final response = await _client.get(
-        Uri.parse('$baseUrl/orders/user/$userId'),
+        Uri.parse('$baseUrl/orders/user/$encodedUserId'),
         headers: _headers,
       );
 

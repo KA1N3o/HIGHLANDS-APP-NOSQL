@@ -31,13 +31,20 @@ router.get('/user/:userId', authMiddleware, async (req, res, next) => {
   try {
     const { userId } = req.params;
     
+    console.log(`GET /api/orders/user/${userId} - JWT userId: ${req.user.userId}, role: ${req.user.role}`);
+    
     // Users can only view their own orders unless they're admin
-    if (req.user.userId !== userId && req.user.role !== 'admin') {
+    // Normalize both IDs for comparison (remove any whitespace/case issues)
+    const tokenUserId = String(req.user.userId).trim();
+    const paramUserId = String(userId).trim();
+    
+    if (tokenUserId !== paramUserId && req.user.role !== 'admin') {
+      console.log(`Access denied: token='${tokenUserId}' !== param='${paramUserId}'`);
       return res.status(403).json(errorResponse('Access denied', 403));
     }
     
     const limit = parseInt(req.query.limit) || 50;
-    const orders = await orderService.getUserOrders(userId, limit);
+    const orders = await orderService.getUserOrders(paramUserId, limit);
     
     res.status(200).json(successResponse(orders));
   } catch (error) {
