@@ -9,14 +9,26 @@ class StoreProvider with ChangeNotifier {
   Store? _selectedStore;
   bool _isLoading = false;
   bool _useMockData = false; // Set to false when backend is ready
+  DateTime? _lastLoadTime;
+  static const Duration _cacheValidDuration = Duration(minutes: 10);
 
   StoreProvider(this._apiService);
 
   List<Store> get stores => List.unmodifiable(_stores);
   Store? get selectedStore => _selectedStore;
   bool get isLoading => _isLoading;
+  
+  bool get _isCacheValid {
+    if (_lastLoadTime == null) return false;
+    return DateTime.now().difference(_lastLoadTime!) < _cacheValidDuration;
+  }
 
-  Future<void> loadStores() async {
+  Future<void> loadStores({bool forceRefresh = false}) async {
+    // Return cached data if valid and not forcing refresh
+    if (!forceRefresh && _isCacheValid && _stores.isNotEmpty) {
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -29,6 +41,7 @@ class StoreProvider with ChangeNotifier {
         _stores = await _apiService.getStores();
       }
       
+      _lastLoadTime = DateTime.now();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -36,6 +49,12 @@ class StoreProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+  
+  void clearCache() {
+    _stores = [];
+    _lastLoadTime = null;
+    notifyListeners();
   }
 
   void selectStore(Store store) {

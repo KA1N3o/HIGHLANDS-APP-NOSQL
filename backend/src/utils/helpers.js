@@ -19,41 +19,53 @@ function parseRowData(row) {
     return data;
   }
 
-  // Process the row data directly (HBase Docker adapter format)
+  // Helper function to extract cell value
+  const getCellValue = (cells) => {
+    if (!cells || cells.length === 0) return null;
+    
+    let cellValue;
+    if (Array.isArray(cells) && cells.length > 0) {
+      cellValue = cells[0].value;
+    } else if (cells.value !== undefined) {
+      cellValue = cells.value;
+    } else {
+      cellValue = cells;
+    }
+    
+    // Try to parse JSON, otherwise use as string
+    try {
+      const stringValue = cellValue.toString();
+      const decodedString = decodeEscapedUTF8(stringValue);
+      return JSON.parse(decodedString);
+    } catch {
+      const stringValue = cellValue.toString();
+      return decodeEscapedUTF8(stringValue);
+    }
+  };
+
+  // Process all families EXCEPT 'info' first
   for (const [family, columns] of Object.entries(row)) {
+    if (family === 'info') continue; // Skip 'info' for now
+    
     for (const [column, cells] of Object.entries(columns)) {
-      // Get the latest cell value
       if (cells && cells.length > 0) {
-        // Handle different cell formats
-        let cellValue;
-        if (Array.isArray(cells) && cells.length > 0) {
-          // HBase Docker adapter format: array of objects with value property
-          cellValue = cells[0].value;
-        } else if (cells.value !== undefined) {
-          // Direct object format
-          cellValue = cells.value;
-        } else {
-          // Unknown format
-          cellValue = cells;
+        const value = getCellValue(cells);
+        if (value !== null) {
+          data[column] = value;
         }
-        
-        // Try to parse JSON, otherwise use as string
-        try {
-          // Ensure proper UTF-8 decoding for JSON strings
-          const stringValue = cellValue.toString();
-          // Properly decode escaped Unicode sequences using iconv-lite
-          const decodedString = decodeEscapedUTF8(stringValue);
-          data[column] = JSON.parse(decodedString);
-        } catch {
-          // Ensure proper UTF-8 decoding for string values
-          const stringValue = cellValue.toString();
-          // Properly decode escaped Unicode sequences using iconv-lite
-          data[column] = decodeEscapedUTF8(stringValue);
-        }
-        
-        // Log status column parsing
-        if (column === 'status') {
-          console.log(`parseRowData: Extracted status column from family '${family}': ${data[column]}`);
+      }
+    }
+  }
+  
+  // Process 'info' family LAST to ensure it overwrites any duplicate columns
+  if (row.info) {
+    for (const [column, cells] of Object.entries(row.info)) {
+      if (cells && cells.length > 0) {
+        const value = getCellValue(cells);
+        if (value !== null) {
+          data[column] = value;
+          
+        // Status set from info family (no log to improve performance)
         }
       }
     }

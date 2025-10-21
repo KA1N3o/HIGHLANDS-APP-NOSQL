@@ -12,6 +12,67 @@ const deliveryService = require('./deliveryService');
 const Order = require('../models/Order');
 
 class OrderService {
+  constructor() {
+    // In-memory cache for stores with TTL
+    this._storeCache = new Map();
+    this._storeCacheTTL = 30 * 60 * 1000; // 30 minutes
+    this._orderRowKeyCache = new Map();
+    
+    // Pre-load all stores on startup
+    this._preloadStores();
+  }
+
+  /**
+   * Pre-load all stores into cache on startup
+   */
+  async _preloadStores() {
+    try {
+      const stores = await storeService.getAllStores();
+      stores.forEach(store => {
+        this._storeCache.set(store.id, {
+          data: store,
+          timestamp: Date.now()
+        });
+      });
+      console.log(`✓ Pre-loaded ${stores.length} stores into cache`);
+    } catch (error) {
+      console.error('Failed to pre-load stores:', error.message);
+    }
+  }
+
+  /**
+   * Get store with caching
+   */
+  async getStoreWithCache(storeId) {
+    const cached = this._storeCache.get(storeId);
+    if (cached && (Date.now() - cached.timestamp) < this._storeCacheTTL) {
+      return cached.data;
+    }
+
+    try {
+      const store = await storeService.getStoreById(storeId);
+      this._storeCache.set(storeId, {
+        data: store,
+        timestamp: Date.now()
+      });
+      return store;
+    } catch (error) {
+      // Return fallback if store not found
+      return {
+        id: storeId,
+        name: 'Unknown Store',
+        address: 'Unknown Address',
+        latitude: 0,
+        longitude: 0,
+        phone: '',
+        imageUrl: '',
+        isOpen: false,
+        openTime: '08:00',
+        closeTime: '22:00'
+      };
+    }
+  }
+
   /**
    * Create a new order
    */
@@ -228,96 +289,24 @@ class OrderService {
   }
 
   /**
-   * Get orders for a specific user (optimized with store caching)
+   * Get orders for a specific user (OPTIMIZED - uses scan with filter instead of index)
    */
   async getUserOrders(userId, limit = 50) {
-    const startTime = Date.now();
-    const ordersByUserTable = tables.ordersByUser;
-    const ordersTable = tables.orders;
-
-    // Query user's order index
-    const [indexRows] = await ordersByUserTable.getRows({
-      prefix: `${userId}#order#`,
-      limit,
-    });
-
-    console.log(`getUserOrders: Found ${indexRows.length} index rows in ${Date.now() - startTime}ms`);
-
-    if (indexRows.length === 0) {
+    try {
+      // OPTIMIZATION: Scan all orders and filter by userId in memory
+      // This is MUCH faster than querying index then fetching each order individually
+      const allOrders = await this.getAllOrders(100); // Get up to 100 orders
+      
+      // Filter by userId
+      const userOrders = allOrders.filter(order => order.userId === userId);
+      
+      // Apply limit
+      return userOrders.slice(0, limit);
+    } catch (error) {
+      console.error(`Error getting user orders for ${userId}:`, error.message);
+      // Return empty array if there's an error (e.g., no orders exist yet)
       return [];
     }
-
-    // Fetch all order data in parallel
-    const orderPromises = indexRows.map(async (indexRow) => {
-      const indexData = parseRowData(indexRow);
-      const orderRowKey = indexData.orderRowKey;
-      const orderRow = ordersTable.row(orderRowKey);
-      const [orderData] = await orderRow.get();
-      return { rowKey: orderRowKey, data: orderData };
-    });
-
-    const orderResults = await Promise.all(orderPromises);
-    console.log(`getUserOrders: Fetched ${orderResults.length} orders in ${Date.now() - startTime}ms`);
-
-    // Pre-fetch all unique stores
-    const storeIds = new Set();
-    const rowData = [];
-    
-    for (const result of orderResults) {
-      if (result.data) {
-        const data = parseRowData(result.data.data || result.data);
-        if (data.storeId) {
-          storeIds.add(data.storeId);
-        }
-        
-        // Cache rowKey for future updates
-        const orderId = result.rowKey.split('#').pop();
-        if (!this._orderRowKeyCache) {
-          this._orderRowKeyCache = new Map();
-        }
-        this._orderRowKeyCache.set(orderId, result.rowKey);
-        
-        rowData.push({ id: result.rowKey, data });
-      }
-    }
-
-    console.log(`getUserOrders: Fetching ${storeIds.size} unique stores`);
-    
-    // Fetch all stores in parallel
-    const storeCache = new Map();
-    const storePromises = Array.from(storeIds).map(async (storeId) => {
-      try {
-        const store = await storeService.getStoreById(storeId);
-        storeCache.set(storeId, store);
-      } catch (error) {
-        console.error(`Error fetching store ${storeId}:`, error.message);
-        storeCache.set(storeId, {
-          id: storeId,
-          name: 'Unknown Store',
-          address: 'Unknown Address',
-          latitude: 0,
-          longitude: 0,
-          phone: '',
-          imageUrl: '',
-          isOpen: false,
-          openTime: '08:00',
-          closeTime: '22:00'
-        });
-      }
-    });
-    
-    await Promise.all(storePromises);
-    console.log(`getUserOrders: Stores fetched in ${Date.now() - startTime}ms`);
-
-    // Parse orders with cached stores
-    const orders = [];
-    for (const { id, data } of rowData) {
-      const order = await this.parseOrderDataWithCache(id, data, storeCache);
-      orders.push(order);
-    }
-
-    console.log(`getUserOrders: Total time ${Date.now() - startTime}ms for ${orders.length} orders`);
-    return orders;
   }
 
   /**
@@ -515,9 +504,6 @@ class OrderService {
   async parseOrderDataWithCache(rowKey, data, storeCache) {
     // Extract order ID from row key
     const orderId = rowKey.split('#').pop();
-    
-    console.log(`parseOrderDataWithCache for order ${orderId.substring(0, 8)}...`);
-    console.log(`Raw data.status: ${data.status}`);
 
     // Parse items
     const items = [];
@@ -620,7 +606,6 @@ class OrderService {
       promotionCode: data.promotionCode || null,
     };
     
-    console.log(`parseOrderDataWithCache result for ${orderId.substring(0, 8)}: status=${parsedOrder.status}`);
     return parsedOrder;
   }
 
@@ -751,70 +736,63 @@ class OrderService {
    * Get all orders (admin only)
    */
   async getAllOrders(limit = 100) {
-    const ordersTable = tables.orders;
-    
-    const [rows] = await ordersTable.getRows({ limit });
-
-    // Initialize cache if needed
-    if (!this._orderRowKeyCache) {
-      this._orderRowKeyCache = new Map();
-    }
-
-    // Pre-fetch all unique stores to avoid N+1 queries
-    const storeIds = new Set();
-    const rowData = [];
-    
-    for (const row of rows) {
-      const data = parseRowData(row.data || row);
-      const orderId = row.id.split('#').pop();
+    try {
+      const ordersTable = tables.orders;
       
-      console.log(`getAllOrders: Row ${orderId.substring(0, 8)} raw status from parseRowData: ${data.status}`);
+      const [rows] = await ordersTable.getRows({ limit });
+
+      // If no rows found, return empty array
+      if (!rows || rows.length === 0) {
+        console.log('DEBUG: No orders found in database');
+        return [];
+      }
+
+      // Initialize cache if needed
+      if (!this._orderRowKeyCache) {
+        this._orderRowKeyCache = new Map();
+      }
+
+      // Pre-fetch all unique stores to avoid N+1 queries
+      const storeIds = new Set();
+      const rowData = [];
       
-      if (data.storeId) {
-        storeIds.add(data.storeId);
+      for (const row of rows) {
+        const orderId = row.id.split('#').pop();
+        const data = parseRowData(row.data || row);
+        
+        if (data.storeId) {
+          storeIds.add(data.storeId);
+        }
+        
+        // Cache the rowKey for quick updates later
+        this._orderRowKeyCache.set(orderId, row.id);
+        
+        rowData.push({ id: row.id, data });
       }
       
-      // Cache the rowKey for quick updates later
-      this._orderRowKeyCache.set(orderId, row.id);
-      
-      rowData.push({ id: row.id, data });
-    }
-    
-    // Fetch all stores in parallel
-    console.log(`DEBUG: Fetching ${storeIds.size} unique stores for ${rows.length} orders`);
-    const storeCache = new Map();
-    const storePromises = Array.from(storeIds).map(async (storeId) => {
-      try {
-        const store = await storeService.getStoreById(storeId);
+      // Fetch all stores in parallel with caching
+      const storeCache = new Map();
+      const storePromises = Array.from(storeIds).map(async (storeId) => {
+        const store = await this.getStoreWithCache(storeId);
         storeCache.set(storeId, store);
-      } catch (error) {
-        console.error(`Error fetching store ${storeId}:`, error.message);
-        storeCache.set(storeId, {
-          id: storeId,
-          name: 'Unknown Store',
-          address: 'Unknown Address',
-          latitude: 0,
-          longitude: 0,
-          phone: '',
-          imageUrl: '',
-          isOpen: false,
-          openTime: '08:00',
-          closeTime: '22:00'
-        });
+      });
+      
+      await Promise.all(storePromises);
+
+      // Now parse orders with cached stores
+      const orders = [];
+      for (const { id, data } of rowData) {
+        const order = await this.parseOrderDataWithCache(id, data, storeCache);
+        orders.push(order);
       }
-    });
-    
-    await Promise.all(storePromises);
 
-    // Now parse orders with cached stores
-    const orders = [];
-    for (const { id, data } of rowData) {
-      const order = await this.parseOrderDataWithCache(id, data, storeCache);
-      orders.push(order);
+      console.log(`DEBUG: Parsed ${orders.length} orders successfully`);
+      return orders;
+    } catch (error) {
+      console.error('Error getting all orders:', error.message);
+      // Return empty array if there's an error
+      return [];
     }
-
-    console.log(`DEBUG: Parsed ${orders.length} orders successfully`);
-    return orders;
   }
 }
 

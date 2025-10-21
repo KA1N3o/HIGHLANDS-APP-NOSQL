@@ -245,10 +245,7 @@ class HBaseDockerAdapter {
       if (rowMatch) {
         const [, rowKey, family, qualifier, value] = rowMatch;
         
-        // Log when we find a status column
-        if (qualifier === 'status') {
-          console.log(`parseScanOutput: Found status for row ${rowKey}: ${value}`);
-        }
+        // Status column found (no log to improve performance)
         
         // Check if we need to start a new row
         if (!currentRow || currentRow.id !== rowKey) {
@@ -273,10 +270,7 @@ class HBaseDockerAdapter {
           timestamp: Date.now()
         }];
         
-        // Log the decoded value for status
-        if (qualifier === 'status') {
-          console.log(`parseScanOutput: Decoded status value: ${decodedValue}`);
-        }
+        // Status decoded (no log to improve performance)
       }
     });
     
@@ -284,7 +278,6 @@ class HBaseDockerAdapter {
       rows.push(currentRow);
     }
     
-    console.log(`parseScanOutput: Parsed ${rows.length} rows`);
     return rows;
   }
 

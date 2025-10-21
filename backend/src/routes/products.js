@@ -69,6 +69,7 @@ router.get('/categories', authMiddleware, async (req, res, next) => {
       { id: 'smoothie', name: 'Sinh tố', icon: '🥤' },
       { id: 'food', name: 'Đồ ăn', icon: '🍔' },
       { id: 'pastry', name: 'Bánh ngọt', icon: '🧁' },
+      { id: 'merchandise', name: 'Sản phẩm', icon: '🎁' },
     ];
     
     res.status(200).json(successResponse('Categories retrieved', categories));

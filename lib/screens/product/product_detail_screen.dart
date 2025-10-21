@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/product.dart';
 import '../../models/cart_item.dart';
 import '../../providers/cart_provider.dart';
@@ -107,10 +108,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   // Product image
                   AspectRatio(
                     aspectRatio: 1,
-                    child: Image.network(
-                      widget.product.imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: widget.product.imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
+                      placeholder: (context, url) => Container(
+                        color: AppTheme.backgroundColor,
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) {
                         return Container(
                           color: AppTheme.backgroundColor,
                           child: const Icon(

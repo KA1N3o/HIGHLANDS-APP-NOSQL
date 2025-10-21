@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../config/theme.dart';
@@ -227,12 +228,24 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  item.product.imageUrl,
+                                child: CachedNetworkImage(
+                                  imageUrl: item.product.imageUrl,
                                   width: 60,
                                   height: 60,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
+                                  placeholder: (context, url) => Container(
+                                    width: 60,
+                                    height: 60,
+                                    color: AppTheme.backgroundColor,
+                                    child: const Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) {
                                     return Container(
                                       width: 60,
                                       height: 60,

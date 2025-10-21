@@ -9,14 +9,28 @@ class OrderProvider with ChangeNotifier {
   bool _isLoading = false;
   Order? _currentOrder;
   bool _useMockData = false; // Set to false when backend is ready
+  DateTime? _lastLoadTime;
+  static const Duration _cacheValidDuration = Duration(minutes: 2);
+  String? _lastUserId; // Track which user's orders are cached
 
   OrderProvider(this._apiService);
 
   List<Order> get orders => List.unmodifiable(_orders);
   bool get isLoading => _isLoading;
   Order? get currentOrder => _currentOrder;
+  
+  bool _isCacheValid(String? userId) {
+    if (_lastLoadTime == null) return false;
+    if (userId != null && _lastUserId != userId) return false; // Different user
+    return DateTime.now().difference(_lastLoadTime!) < _cacheValidDuration;
+  }
 
-  Future<void> loadUserOrders(String userId) async {
+  Future<void> loadUserOrders(String userId, {bool forceRefresh = false}) async {
+    // Return cached data if valid and not forcing refresh
+    if (!forceRefresh && _isCacheValid(userId) && _orders.isNotEmpty) {
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -29,6 +43,8 @@ class OrderProvider with ChangeNotifier {
       } else {
         _orders = await _apiService.getUserOrders(userId);
       }
+      _lastLoadTime = DateTime.now();
+      _lastUserId = userId;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -38,7 +54,12 @@ class OrderProvider with ChangeNotifier {
     }
   }
 
-  Future<void> loadAllOrders({int limit = 100}) async {
+  Future<void> loadAllOrders({int limit = 100, bool forceRefresh = false}) async {
+    // Return cached data if valid and not forcing refresh
+    if (!forceRefresh && _isCacheValid(null) && _orders.isNotEmpty) {
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -53,6 +74,8 @@ class OrderProvider with ChangeNotifier {
         _orders = await _apiService.getAllOrders(limit: limit);
         print('DEBUG: Successfully loaded ${_orders.length} orders');
       }
+      _lastLoadTime = DateTime.now();
+      _lastUserId = null; // Admin loads all users
       _isLoading = false;
       notifyListeners();
     } catch (e, stackTrace) {
@@ -62,6 +85,13 @@ class OrderProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+  
+  void clearCache() {
+    _orders = [];
+    _lastLoadTime = null;
+    _lastUserId = null;
+    notifyListeners();
   }
 
   Future<Order> createOrder(Order order) async {
@@ -136,10 +166,11 @@ class OrderProvider with ChangeNotifier {
         final index = _orders.indexWhere((o) => o.id == orderId);
         
         if (index >= 0) {
-          _orders[index] = updatedOrder;
-          print('Updated order in list at index $index');
-          print('Orders list now has ${_orders.length} orders');
-          print('Order statuses: ${_orders.map((o) => '${o.id.substring(0, 8)}: ${o.status.name}').join(', ')}');
+          // Only update if status actually changed
+          if (_orders[index].status != updatedOrder.status) {
+            _orders[index] = updatedOrder;
+            print('Updated order in list at index $index');
+          }
         } else {
           // If not found, add it
           _orders.add(updatedOrder);
@@ -151,7 +182,7 @@ class OrderProvider with ChangeNotifier {
         _currentOrder = updatedOrder;
       }
       
-      // Force rebuild by notifying listeners
+      // Only notify once after all updates
       notifyListeners();
       print('Order status updated successfully, notified listeners');
     } catch (e) {

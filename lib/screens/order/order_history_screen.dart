@@ -23,18 +23,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Only load if orders are empty
-      final orderProvider = context.read<OrderProvider>();
-      if (orderProvider.orders.isEmpty) {
-        _loadOrders();
-      }
+      _loadOrders(forceRefresh: false); // Use cache if available
     });
   }
 
-  Future<void> _loadOrders() async {
+  Future<void> _loadOrders({bool forceRefresh = false}) async {
     final userId = context.read<AuthProvider>().currentUser?.id;
     if (userId != null) {
-      await context.read<OrderProvider>().loadUserOrders(userId);
+      await context.read<OrderProvider>().loadUserOrders(userId, forceRefresh: forceRefresh);
     }
   }
 
@@ -88,7 +84,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: _loadOrders,
+                  onRefresh: () => _loadOrders(forceRefresh: true),
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: completedOrders.length,

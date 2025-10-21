@@ -199,9 +199,11 @@ class ApiService {
           
           final List<dynamic> productsData = messageData['products'] as List<dynamic>;
           
-          // Fix sizes field if it's a string instead of array
-          final fixedProducts = productsData.map((json) {
-            final productJson = json as Map<String, dynamic>;
+          // Optimize: Process all products in one go
+          final fixedProducts = <Map<String, dynamic>>[];
+          
+          for (var json in productsData) {
+            final productJson = Map<String, dynamic>.from(json as Map<String, dynamic>);
             
             // Fix sizes field
             if (productJson['sizes'] is String) {
@@ -212,22 +214,25 @@ class ApiService {
               }
             }
             
-            // Fix UTF-8 encoding issues in text fields
-            final textFields = ['name', 'description'];
-            for (final field in textFields) {
-              if (productJson[field] is String) {
-                final text = productJson[field] as String;
-                // Decode escape sequences like \xE1\xBB\x81n
-                final decoded = _decodeEscapeSequences(text);
-                print('DEBUG: $field - Original: $text');
-                print('DEBUG: $field - Decoded: $decoded');
-                productJson[field] = decoded;
+            // Fix UTF-8 encoding issues in text fields - only decode if needed
+            if (productJson['name'] is String) {
+              final name = productJson['name'] as String;
+              if (name.contains(r'\x')) {
+                productJson['name'] = _decodeEscapeSequences(name);
               }
             }
             
-            return productJson;
-          }).toList();
+            if (productJson['description'] is String) {
+              final desc = productJson['description'] as String;
+              if (desc.contains(r'\x')) {
+                productJson['description'] = _decodeEscapeSequences(desc);
+              }
+            }
+            
+            fixedProducts.add(productJson);
+          }
           
+          // Parse to Product objects
           return fixedProducts.map((json) => Product.fromJson(json)).toList();
         } else {
           throw Exception('Failed to get products: ${responseData['error']?['message'] ?? 'Unknown error'}');

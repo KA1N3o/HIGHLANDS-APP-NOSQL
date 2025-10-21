@@ -8,13 +8,26 @@ class ProductProvider with ChangeNotifier {
   List<Product> _products = [];
   bool _isLoading = false;
   bool _useMockData = false; // Set to false when backend is ready
+  DateTime? _lastLoadTime;
+  static const Duration _cacheValidDuration = Duration(minutes: 5);
 
   ProductProvider(this._apiService);
 
   List<Product> get products => List.unmodifiable(_products);
   bool get isLoading => _isLoading;
+  bool get hasCache => _products.isNotEmpty && _isCacheValid;
+  
+  bool get _isCacheValid {
+    if (_lastLoadTime == null) return false;
+    return DateTime.now().difference(_lastLoadTime!) < _cacheValidDuration;
+  }
 
-  Future<void> loadProducts() async {
+  Future<void> loadProducts({bool forceRefresh = false}) async {
+    // Return cached data if valid and not forcing refresh
+    if (!forceRefresh && _isCacheValid && _products.isNotEmpty) {
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -31,6 +44,7 @@ class ProductProvider with ChangeNotifier {
         _products = await _apiService.getProducts();
       }
       
+      _lastLoadTime = DateTime.now();
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -38,6 +52,12 @@ class ProductProvider with ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+  
+  void clearCache() {
+    _products = [];
+    _lastLoadTime = null;
+    notifyListeners();
   }
 
   List<Product> getProductsByCategory(ProductCategory category) {

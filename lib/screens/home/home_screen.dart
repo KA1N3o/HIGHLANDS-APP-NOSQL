@@ -237,7 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 0.7,
+        childAspectRatio: 0.65,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
@@ -275,20 +275,23 @@ class _HomeScreenState extends State<HomeScreen> {
             // Product info
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      product.name,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Flexible(
+                      child: Text(
+                        product.name,
+                        style: Theme.of(context).textTheme.titleSmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 4),
                     Text(
                       '${product.price.toInt()}đ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color: AppTheme.primaryGreen,
                             fontWeight: FontWeight.bold,
                           ),
@@ -315,6 +318,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Món ăn';
       case ProductCategory.pastry:
         return 'Bánh ngọt';
+      case ProductCategory.merchandise:
+        return 'Sản phẩm';
     }
   }
 }

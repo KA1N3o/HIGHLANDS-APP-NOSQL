@@ -8,7 +8,7 @@ class Product {
     this.description = data.description || '';
     this.price = data.price || 0;
     this.imageUrl = data.imageUrl || null;
-    this.category = data.category || 'other'; // coffee, tea, smoothie, food, pastry
+    this.category = data.category || 'other'; // coffee, tea, smoothie, food, pastry, merchandise
     this.isAvailable = data.isAvailable !== undefined ? data.isAvailable : true;
     this.preparationTime = data.preparationTime || 10; // minutes
     this.sizes = data.sizes || ['Medium', 'Large'];

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/order_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
@@ -34,7 +35,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
   Future<void> _loadOrders() async {
     // Admin loads ALL orders, not just their own
     // Limit to 50 for better performance
-    await context.read<OrderProvider>().loadAllOrders(limit: 50);
+    await context.read<OrderProvider>().loadAllOrders(limit: 50, forceRefresh: true);
   }
 
   @override
@@ -198,12 +199,24 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            item.product.imageUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: item.product.imageUrl,
                             width: 50,
                             height: 50,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) {
+                            placeholder: (context, url) => Container(
+                              width: 50,
+                              height: 50,
+                              color: AppTheme.backgroundColor,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (context, url, error) {
                               return Container(
                                 width: 50,
                                 height: 50,

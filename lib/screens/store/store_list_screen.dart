@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/store_provider.dart';
 import '../../models/store.dart';
 import '../../config/theme.dart';
@@ -93,12 +94,24 @@ class _StoreListScreenState extends State<StoreListScreen> {
               // Store image
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  store.imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: store.imageUrl,
                   width: 80,
                   height: 80,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
+                  placeholder: (context, url) => Container(
+                    width: 80,
+                    height: 80,
+                    color: AppTheme.backgroundColor,
+                    child: const Center(
+                      child: SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) {
                     return Container(
                       width: 80,
                       height: 80,

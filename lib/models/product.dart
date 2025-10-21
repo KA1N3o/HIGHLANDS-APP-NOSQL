@@ -161,5 +161,6 @@ enum ProductCategory {
   smoothie,
   food,
   pastry,
+  merchandise,
 }
 
