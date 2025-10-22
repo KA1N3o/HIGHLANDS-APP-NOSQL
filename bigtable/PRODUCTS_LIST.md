@@ -1,6 +1,6 @@
 # Highlands Coffee - Danh Mục Sản Phẩm Đầy Đủ
 
-Tổng cộng: **47+ sản phẩm**
+Tổng cộng: **52+ sản phẩm**
 
 ---
 
@@ -81,7 +81,7 @@ Tổng cộng: **47+ sản phẩm**
 | food002 | Bánh Mì Que Gà Phô Mai | 35,000₫ | Nhân gà phô mai |
 | food003 | Bánh Mì Que Pate | 32,000₫ | Nhân pate đặc biệt |
 
-### Bánh Ngọt (6 sản phẩm)
+### Bánh Ngọt (11 sản phẩm)
 | ID | Tên | Giá | Mô tả |
 |----|-----|-----|-------|
 | pastry001 | Croissant Bơ | 35,000₫ | Bánh sừng bò giòn tan |
@@ -90,6 +90,11 @@ Tổng cộng: **47+ sản phẩm**
 | pastry004 | Bánh Cheesecake | 42,000₫ | Cheesecake phô mai |
 | pastry005 | Muffin Chocolate Chip | 32,000₫ | Muffin chocolate chip |
 | pastry006 | Muffin Blueberry | 32,000₫ | Muffin blueberry tươi |
+| pastry007 | Bánh Su Kem | 38,000₫ | Bánh su kem nhân kem tươi |
+| pastry008 | Bánh Sữa Chua Phô Mai | 45,000₫ | Bánh sữa chua phô mai mềm mịn |
+| pastry009 | Bánh Phô Mai Trà Xanh | 48,000₫ | Cheesecake trà xanh matcha |
+| pastry010 | Bánh Phô Mai Chanh Dây | 48,000₫ | Cheesecake chanh dây nhiệt đới |
+| pastry011 | Mousse Cacao | 52,000₫ | Mousse cacao mềm mịn |
 
 ---
 
@@ -129,10 +134,10 @@ Tổng cộng: **47+ sản phẩm**
 | Cà phê | 14 | 35,000₫ | 59,000₫ |
 | Freeze | 5 | 52,000₫ | 59,000₫ |
 | Trà | 9 | 45,000₫ | 52,000₫ |
-| Đồ ăn | 9 | 32,000₫ | 45,000₫ |
+| Đồ ăn | 14 | 32,000₫ | 52,000₫ |
 | Đóng gói | 5 | 18,000₫ | 150,000₫ |
 | Merchandise | 5 | 65,000₫ | 250,000₫ |
-| **TỔNG** | **47** | **18,000₫** | **250,000₫** |
+| **TỔNG** | **52** | **18,000₫** | **250,000₫** |
 
 ---
 

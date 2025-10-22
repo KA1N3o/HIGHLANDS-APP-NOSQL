@@ -13,6 +13,10 @@ class ApiService {
   // Use 10.0.2.2 for Android emulator to access host machine's localhost
   static const String baseUrl = 'http://10.0.2.2:8080/api';
   
+  // HTTP timeout to prevent long waits
+  // Increased temporarily for slow Bigtable queries
+  static const Duration _timeout = Duration(seconds: 30);
+  
   final http.Client _client;
   String? _authToken;
 
@@ -81,7 +85,7 @@ class ApiService {
           'email': email,
           'password': password,
         }),
-      );
+      ).timeout(_timeout);
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
@@ -136,12 +140,12 @@ class ApiService {
   }
 
   // User
-  Future<User> getUser(String userId) async {
+  Future<User> getCurrentUser() async {
     try {
       final response = await _client.get(
         Uri.parse('$baseUrl/users/me'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
@@ -149,12 +153,107 @@ class ApiService {
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
           return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
         } else {
+          throw Exception('Failed to get current user: Invalid response format');
+        }
+      } else {
+        throw Exception('Failed to get current user: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Get current user error: $e');
+    }
+  }
+
+  Future<User> getUser(String userId) async {
+    try {
+      print('DEBUG getUser called with userId: $userId');
+      print('DEBUG headers: $_headers');
+      final url = Uri.parse('$baseUrl/users/me');
+      print('DEBUG request URL: $url');
+      final response = await _client.get(url, headers: _headers);
+
+      print('DEBUG getUser response status: ${response.statusCode}');
+      print('DEBUG getUser response body length: ${response.body.length}');
+      if (response.body.length < 1000) {
+        print('DEBUG getUser response body: ${response.body}');
+      } else {
+        print('DEBUG getUser response body (first 1000 chars): ${response.body.substring(0, 1000)}');
+      }
+      
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        print('DEBUG jsonResponse keys: ${jsonResponse.keys}');
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          // Check if data is already a User object or needs to be parsed
+          final data = jsonResponse['data'];
+          print('DEBUG data type: ${data.runtimeType}');
+          print('DEBUG data is Map<String, dynamic>: ${data is Map<String, dynamic>}');
+          
+          if (data is Map<String, dynamic>) {
+            print('DEBUG Map keys: ${data.keys}');
+            // Check if the map has the expected keys
+            print('DEBUG name in data: ${data.containsKey('name')}');
+            print('DEBUG email in data: ${data.containsKey('email')}');
+            if (data.containsKey('name')) {
+              print('DEBUG name value: ${data['name']}');
+            }
+            if (data.containsKey('email')) {
+              print('DEBUG email value: ${data['email']}');
+            }
+            
+            try {
+              final user = User.fromJson(data);
+              print('DEBUG User created successfully: ${user.name}, ${user.email}');
+              return user;
+            } catch (e) {
+              print('DEBUG User.fromJson failed: $e');
+              rethrow;
+            }
+          } else if (data is String) {
+            // If data is a string, try to parse it as JSON
+            try {
+              print('DEBUG parsing string data as JSON: $data');
+              final userData = jsonDecode(data) as Map<String, dynamic>;
+              return User.fromJson(userData);
+            } catch (parseError) {
+              print('DEBUG JSON parsing failed: $parseError');
+              // If parsing fails, create a minimal user object
+              return User(
+                id: userId,
+                email: 'unknown@example.com',
+                name: 'Unknown User',
+                phone: '',
+                role: UserRole.customer,
+                createdAt: DateTime.now(),
+              );
+            }
+          } else {
+            print('DEBUG unexpected data format, creating default user');
+            print('DEBUG data type: ${data.runtimeType}');
+            // If we get here, create a minimal user object with available data
+            return User(
+              id: userId,
+              email: 'unknown@example.com',
+              name: 'Unknown User',
+              phone: '',
+              role: UserRole.customer,
+              createdAt: DateTime.now(),
+            );
+          }
+        } else {
+          print('DEBUG response not successful or data is null');
+          print('DEBUG success: ${jsonResponse['success']}');
+          print('DEBUG data: ${jsonResponse['data']}');
           throw Exception('Failed to get user: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
         }
       } else {
+        print('DEBUG response status not 200: ${response.statusCode}');
+        print('DEBUG response body: ${response.body}');
         throw Exception('Failed to get user: ${response.body}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('DEBUG getUser error: $e');
+      print('DEBUG stack trace: $stackTrace');
       throw Exception('Get user error: $e');
     }
   }
@@ -183,21 +282,85 @@ class ApiService {
     }
   }
 
+  Future<User> uploadProfilePhoto(String base64Image) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/users/me/photo'),
+        headers: _headers,
+        body: jsonEncode({'photoUrl': base64Image}),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return User.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to upload photo: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to upload photo: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Upload photo error: $e');
+    }
+  }
+
+  Future<void> changePassword(String currentPassword, String newPassword, String confirmPassword) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/users/me/change-password'),
+        headers: _headers,
+        body: jsonEncode({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+          'confirmPassword': confirmPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] != true) {
+          throw Exception('Failed to change password: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Mật khẩu hiện tại không đúng');
+      } else if (response.statusCode == 400) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        final errors = jsonResponse['error']?['details'] as List<dynamic>?;
+        if (errors != null && errors.isNotEmpty) {
+          final firstError = errors[0] as Map<String, dynamic>;
+          throw Exception(firstError['msg'] ?? 'Validation error');
+        }
+        throw Exception('Failed to change password: ${response.body}');
+      } else {
+        throw Exception('Failed to change password: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Change password error: $e');
+    }
+  }
+
   // Products
   Future<List<Product>> getProducts() async {
     try {
+      final startTime = DateTime.now();
       final response = await _client.get(
         Uri.parse('$baseUrl/products'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('API: Products fetched in ${duration}ms');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body) as Map<String, dynamic>;
         
-        if (responseData['success'] == true && responseData['message'] != null) {
-          final Map<String, dynamic> messageData = responseData['message'] as Map<String, dynamic>;
+        if (responseData['success'] == true && responseData['data'] != null) {
+          final Map<String, dynamic> dataMap = responseData['data'] as Map<String, dynamic>;
           
-          final List<dynamic> productsData = messageData['products'] as List<dynamic>;
+          final List<dynamic> productsData = dataMap['products'] as List<dynamic>;
           
           // Optimize: Process all products in one go
           final fixedProducts = <Map<String, dynamic>>[];
@@ -265,10 +428,14 @@ class ApiService {
   // Stores
   Future<List<Store>> getStores() async {
     try {
+      final startTime = DateTime.now();
       final response = await _client.get(
         Uri.parse('$baseUrl/stores'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('API: Stores fetched in ${duration}ms');
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -363,10 +530,14 @@ class ApiService {
   Future<List<Order>> getAllOrders({int limit = 100}) async {
     try {
       print('DEBUG API: Fetching orders from $baseUrl/orders?limit=$limit');
+      final startTime = DateTime.now();
       final response = await _client.get(
         Uri.parse('$baseUrl/orders?limit=$limit'),
         headers: _headers,
-      );
+      ).timeout(_timeout);
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('API: Orders fetched in ${duration}ms');
 
       print('DEBUG API: Response status: ${response.statusCode}');
       if (response.statusCode == 200) {
@@ -455,6 +626,35 @@ class ApiService {
     }
   }
 
+  Future<Order> cancelOrder(String orderId, {String? reason}) async {
+    try {
+      print('DEBUG API: Cancelling order $orderId');
+      final response = await _client.post(
+        Uri.parse('$baseUrl/orders/$orderId/cancel'),
+        headers: _headers,
+        body: jsonEncode({'reason': reason ?? 'Customer request'}),
+      );
+
+      print('DEBUG API: Cancel order response: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        // Backend returns {success: true, message: "...", data: <order>}
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final orderData = jsonResponse['data'] as Map<String, dynamic>;
+          return Order.fromJson(orderData);
+        }
+        
+        throw Exception('Failed to cancel order: Invalid response format');
+      } else {
+        throw Exception('Failed to cancel order: ${response.body}');
+      }
+    } catch (e) {
+      print('ERROR cancelling order: $e');
+      throw Exception('Cancel order error: $e');
+    }
+  }
+
   // Payment
   Future<Map<String, dynamic>> processPayment(
     String orderId,
@@ -533,13 +733,23 @@ class ApiService {
     }
   }
 
-  Future<User> updateUserRole(String userId, UserRole role) async {
+  Future<User> updateUserRole(String userId, UserRole role, {String? assignedStoreId}) async {
     try {
       final encodedUserId = Uri.encodeComponent(userId);
+      final body = {'role': role.name};
+      
+      // Add assignedStoreId if provided, or explicitly set to null for non-staff roles
+      if (role == UserRole.staff && assignedStoreId != null) {
+        body['assignedStoreId'] = assignedStoreId;
+      } else if (role != UserRole.staff) {
+        // Clear assignedStoreId when changing from staff to other roles
+        body['assignedStoreId'] = '';
+      }
+      
       final response = await _client.put(
         Uri.parse('$baseUrl/admin/users/$encodedUserId/role'),
         headers: _headers,
-        body: jsonEncode({'role': role.name}),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode == 200) {
@@ -555,6 +765,34 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Update user role error: $e');
+    }
+  }
+
+  Future<void> deleteUser(String userId) async {
+    try {
+      final encodedUserId = Uri.encodeComponent(userId);
+      print('DEBUG API: Deleting user ID: $userId (encoded: $encodedUserId)');
+      
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/admin/users/$encodedUserId'),
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] != true) {
+          throw Exception('Failed to delete user: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else if (response.statusCode == 403) {
+        throw Exception('Không thể xóa tài khoản admin');
+      } else if (response.statusCode == 404) {
+        throw Exception('Không tìm thấy người dùng');
+      } else {
+        throw Exception('Failed to delete user: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Delete user error: $e');
     }
   }
 

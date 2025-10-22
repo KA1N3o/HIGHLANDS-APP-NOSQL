@@ -9,6 +9,7 @@ class User {
     this.phone = data.phone || '';
     this.photoUrl = data.photoUrl || null;
     this.role = data.role || 'customer'; // customer, staff, admin, shipper
+    this.assignedStoreId = data.assignedStoreId || null; // Store ID that staff is assigned to manage
     this.createdAt = data.createdAt || new Date().toISOString();
     this.addresses = data.addresses || [];
     this.defaultAddressIndex = data.defaultAddressIndex || 0;
@@ -22,6 +23,7 @@ class User {
       phone: this.phone || '',
       photoUrl: this.photoUrl || null,
       role: this.role || 'customer',
+      assignedStoreId: this.assignedStoreId || null,
       createdAt: this.createdAt || new Date().toISOString(),
       addresses: this.addresses || [],
       defaultAddressIndex: this.defaultAddressIndex || 0,
@@ -39,6 +41,7 @@ class User {
       phone: decodeEscapedUTF8(parsedData.phone) || '',
       photoUrl: parsedData.photoUrl || null,
       role: parsedData.role || 'customer',
+      assignedStoreId: parsedData.assignedStoreId || null,
       createdAt: parsedData.createdAt || new Date().toISOString(),
       addresses: parsedData.addresses ? JSON.parse(parsedData.addresses || '[]') : [],
       defaultAddressIndex: parsedData.defaultAddressIndex ? parseInt(parsedData.defaultAddressIndex) : 0,

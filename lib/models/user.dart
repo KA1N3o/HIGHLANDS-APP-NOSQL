@@ -6,6 +6,7 @@ class User {
   final String? photoUrl;
   final DateTime createdAt;
   final UserRole role;
+  final String? assignedStoreId; // Store ID that staff is assigned to manage
 
   User({
     required this.id,
@@ -15,6 +16,7 @@ class User {
     this.photoUrl,
     required this.createdAt,
     this.role = UserRole.customer,
+    this.assignedStoreId,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,13 @@ class User {
       }
     }
     
+    // Parse assignedStoreId - convert empty string to null
+    String? parseAssignedStoreId(dynamic value) {
+      if (value == null) return null;
+      final str = value.toString().trim();
+      return str.isEmpty ? null : str;
+    }
+    
     return User(
       id: json['id']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
@@ -40,6 +49,7 @@ class User {
         (e) => e.name == json['role'],
         orElse: () => UserRole.customer,
       ),
+      assignedStoreId: parseAssignedStoreId(json['assignedStoreId']),
     );
   }
 
@@ -52,6 +62,7 @@ class User {
       'photoUrl': photoUrl,
       'createdAt': createdAt.toIso8601String(),
       'role': role.name,
+      'assignedStoreId': assignedStoreId,
     };
   }
 
@@ -63,6 +74,7 @@ class User {
     String? photoUrl,
     DateTime? createdAt,
     UserRole? role,
+    String? assignedStoreId,
   }) {
     return User(
       id: id ?? this.id,
@@ -72,6 +84,7 @@ class User {
       photoUrl: photoUrl ?? this.photoUrl,
       createdAt: createdAt ?? this.createdAt,
       role: role ?? this.role,
+      assignedStoreId: assignedStoreId ?? this.assignedStoreId,
     );
   }
 }

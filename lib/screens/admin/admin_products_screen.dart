@@ -339,6 +339,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             children: [
               TextFormField(
                 controller: _nameController,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+                enableIMEPersonalizedLearning: false,
                 decoration: const InputDecoration(
                   labelText: 'Tên sản phẩm',
                   border: OutlineInputBorder(),
@@ -353,6 +357,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _descriptionController,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                textCapitalization: TextCapitalization.sentences,
+                enableIMEPersonalizedLearning: false,
                 decoration: const InputDecoration(
                   labelText: 'Mô tả',
                   border: OutlineInputBorder(),
@@ -362,11 +370,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _priceController,
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.next,
+                enableIMEPersonalizedLearning: false,
                 decoration: const InputDecoration(
                   labelText: 'Giá (VND)',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Vui lòng nhập giá';
@@ -380,6 +390,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _imageUrlController,
+                keyboardType: TextInputType.url,
+                textInputAction: TextInputAction.done,
+                enableIMEPersonalizedLearning: false,
                 decoration: const InputDecoration(
                   labelText: 'URL hình ảnh',
                   border: OutlineInputBorder(),

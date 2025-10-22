@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/store_provider.dart';
 import '../../models/user.dart';
+import '../../models/store.dart';
 import '../../services/api_service.dart';
 import '../../config/theme.dart';
 
@@ -21,6 +23,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   void initState() {
     super.initState();
     _loadUsers();
+    // Load stores after the first frame is built to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStores();
+    });
+  }
+
+  Future<void> _loadStores() async {
+    try {
+      await context.read<StoreProvider>().loadStores();
+    } catch (e) {
+      // Silently fail - stores will be loaded when needed
+    }
   }
 
   Future<void> _loadUsers() async {
@@ -116,6 +130,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildUserCard(User user) {
+    // Use read instead of watch to avoid setState during build
+    final storeProvider = context.read<StoreProvider>();
+    Store? assignedStore;
+    
+    if (user.role == UserRole.staff && user.assignedStoreId != null) {
+      try {
+        assignedStore = storeProvider.stores.firstWhere(
+          (s) => s.id == user.assignedStoreId,
+        );
+      } catch (e) {
+        // Store not found
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -168,6 +196,38 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 fontSize: 12,
               ),
             ),
+            // Show assigned store for staff
+            if (user.role == UserRole.staff) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.store,
+                    size: 14,
+                    color: assignedStore != null 
+                        ? AppTheme.primaryGreen 
+                        : Colors.grey,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      assignedStore != null 
+                          ? 'Cửa hàng: ${assignedStore.name}'
+                          : 'Chưa gán cửa hàng',
+                      style: TextStyle(
+                        color: assignedStore != null 
+                            ? AppTheme.primaryGreen 
+                            : Colors.grey,
+                        fontSize: 12,
+                        fontStyle: assignedStore == null 
+                            ? FontStyle.italic 
+                            : FontStyle.normal,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
         trailing: PopupMenuButton<String>(
@@ -178,6 +238,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 break;
               case 'change_role':
                 _showChangeRoleDialog(user);
+                break;
+              case 'delete':
+                _showDeleteUserDialog(user);
                 break;
             }
           },
@@ -202,6 +265,20 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 ],
               ),
             ),
+            if (user.role != UserRole.admin)
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, size: 20, color: AppTheme.errorColor),
+                    SizedBox(width: 12),
+                    Text(
+                      'Xóa tài khoản',
+                      style: TextStyle(color: AppTheme.errorColor),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -350,7 +427,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
   void _showChangeRoleDialog(User user) {
     UserRole selectedRole = user.role;
+    String? selectedStoreId = user.assignedStoreId;
     bool isLoading = false;
+    final storeProvider = context.read<StoreProvider>();
 
     showDialog(
       context: context,
@@ -359,40 +438,177 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         builder: (context, setDialogState) {
           return AlertDialog(
             title: Text('Thay đổi quyền: ${user.name}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ...UserRole.values.map((role) {
-                  return RadioListTile<UserRole>(
-                    title: Text(_getRoleName(role)),
-                    value: role,
-                    groupValue: selectedRole,
-                    onChanged: isLoading
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              setDialogState(() => selectedRole = value);
-                            }
-                          },
-                    activeColor: _getRoleColor(role),
-                  );
-                }),
-                if (isLoading) ...[
-                  const SizedBox(height: 16),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 16),
-                      Text('Đang cập nhật quyền...'),
-                    ],
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Chọn quyền:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  ...UserRole.values.map((role) {
+                    return RadioListTile<UserRole>(
+                      title: Text(_getRoleName(role)),
+                      value: role,
+                      groupValue: selectedRole,
+                      onChanged: isLoading
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setDialogState(() {
+                                  selectedRole = value;
+                                  // Clear store assignment when changing from staff
+                                  if (value != UserRole.staff) {
+                                    selectedStoreId = null;
+                                  }
+                                });
+                              }
+                            },
+                      activeColor: _getRoleColor(role),
+                      contentPadding: EdgeInsets.zero,
+                    );
+                  }),
+                  // Show store selection only for staff role
+                  if (selectedRole == UserRole.staff) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Text(
+                          'Gán cửa hàng:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '*',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Bắt buộc phải chọn cửa hàng cho nhân viên',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (storeProvider.stores.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          'Không có cửa hàng nào',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: selectedStoreId == null 
+                                ? Colors.red.shade300 
+                                : Colors.grey.shade300,
+                            width: selectedStoreId == null ? 2 : 1,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          color: selectedStoreId == null 
+                              ? Colors.red.shade50 
+                              : null,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            value: selectedStoreId,
+                            hint: const Text(
+                              'Chọn cửa hàng *',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            items: storeProvider.stores.map((store) {
+                              return DropdownMenuItem<String>(
+                                value: store.id,
+                                child: Text(
+                                  store.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: isLoading
+                                ? null
+                                : (value) {
+                                    setDialogState(() {
+                                      selectedStoreId = value;
+                                    });
+                                  },
+                          ),
+                        ),
+                      ),
+                    if (selectedStoreId != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.check_circle,
+                              color: AppTheme.primaryGreen,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Nhân viên sẽ quản lý: ${storeProvider.stores.firstWhere((s) => s.id == selectedStoreId).name}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primaryGreen,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                  if (isLoading) ...[
+                    const SizedBox(height: 24),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 16),
+                        Text('Đang cập nhật quyền...'),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
             actions: [
               TextButton(
@@ -403,6 +619,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 onPressed: isLoading
                     ? null
                     : () async {
+                        // Validate: Staff must have an assigned store
+                        if (selectedRole == UserRole.staff && selectedStoreId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Vui lòng chọn cửa hàng cho nhân viên'),
+                              backgroundColor: AppTheme.errorColor,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+
                         setDialogState(() => isLoading = true);
 
                         try {
@@ -412,14 +640,26 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             apiService.setAuthToken(authProvider.authToken!);
                           }
 
-                          await apiService.updateUserRole(user.id, selectedRole);
+                          await apiService.updateUserRole(
+                            user.id, 
+                            selectedRole,
+                            assignedStoreId: selectedStoreId,
+                          );
 
                           if (mounted) {
                             Navigator.pop(context);
+                            
+                            String message = 'Đã cập nhật quyền ${_getRoleName(selectedRole)} cho ${user.name}';
+                            if (selectedRole == UserRole.staff && selectedStoreId != null) {
+                              final storeName = storeProvider.stores
+                                  .firstWhere((s) => s.id == selectedStoreId)
+                                  .name;
+                              message += ' và gán cửa hàng $storeName';
+                            }
+                            
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(
-                                    'Đã cập nhật quyền ${_getRoleName(selectedRole)} cho ${user.name}'),
+                                content: Text(message),
                                 backgroundColor: AppTheme.successColor,
                               ),
                             );
@@ -450,6 +690,181 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         ),
                       )
                     : const Text('Lưu'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showDeleteUserDialog(User user) {
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: AppTheme.errorColor),
+                SizedBox(width: 8),
+                Text('Xác nhận xóa tài khoản'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Bạn có chắc chắn muốn xóa tài khoản này?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.person, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                user.name,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.email, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(user.email)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.phone, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(child: Text(user.phone)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.orange, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Hành động này không thể hoàn tác!',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isLoading) ...[
+                    const SizedBox(height: 24),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 16),
+                        Text('Đang xóa tài khoản...'),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(context),
+                child: const Text('Hủy'),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        setDialogState(() => isLoading = true);
+
+                        try {
+                          final apiService = ApiService();
+                          final authProvider = context.read<AuthProvider>();
+                          if (authProvider.authToken != null) {
+                            apiService.setAuthToken(authProvider.authToken!);
+                          }
+
+                          await apiService.deleteUser(user.id);
+
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Đã xóa tài khoản ${user.name}'),
+                                backgroundColor: AppTheme.successColor,
+                              ),
+                            );
+                            _loadUsers();
+                          }
+                        } catch (e) {
+                          setDialogState(() => isLoading = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Lỗi: ${e.toString().replaceAll('Exception: ', '')}'),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text('Xóa'),
               ),
             ],
           );

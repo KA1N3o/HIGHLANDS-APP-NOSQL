@@ -1,0 +1,8 @@
+# Fix Images for Banh Su Kem and Banh Pho Mai Chanh Day
+
+# Banh Su Kem - Cream Puff (thay URL moi)
+put 'products', 'product#pastry007', 'info:imageUrl', 'https://images.unsplash.com/photo-1587241321921-91a834d82e38?w=400&h=300&fit=crop&q=80'
+
+# Banh Pho Mai Chanh Day - Passionfruit Cheesecake (thay URL moi)
+put 'products', 'product#pastry010', 'info:imageUrl', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop&q=80'
+

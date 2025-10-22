@@ -1,0 +1,5 @@
+# Fix Banh Su Kem Image - Final
+
+# Banh Su Kem - Cream Puff (URL moi da test OK)
+put 'products', 'product#pastry007', 'info:imageUrl', 'https://images.unsplash.com/photo-1519915028121-7d3463d20b13?w=400&h=300&fit=crop&q=80'
+

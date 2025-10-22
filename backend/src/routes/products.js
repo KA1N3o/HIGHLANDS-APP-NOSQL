@@ -66,8 +66,9 @@ router.get('/categories', authMiddleware, async (req, res, next) => {
     const categories = [
       { id: 'coffee', name: 'Cà phê', icon: '☕' },
       { id: 'tea', name: 'Trà', icon: '🍵' },
+      { id: 'freeze', name: 'Freeze', icon: '🧊' },
       { id: 'smoothie', name: 'Sinh tố', icon: '🥤' },
-      { id: 'food', name: 'Đồ ăn', icon: '🍔' },
+      { id: 'food', name: 'Bánh Mì', icon: '🥖' },
       { id: 'pastry', name: 'Bánh ngọt', icon: '🧁' },
       { id: 'merchandise', name: 'Sản phẩm', icon: '🎁' },
     ];

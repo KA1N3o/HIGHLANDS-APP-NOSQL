@@ -11,12 +11,42 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _useMockData = false; // Set to false when backend is ready
 
-  AuthProvider(this._apiService);
+    AuthProvider(this._apiService) {
+    // Auto-restore session when provider is created
+    _restoreSession();
+  }
 
   User? get currentUser => _currentUser;
   String? get authToken => _authToken;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _currentUser != null && _authToken != null;
+
+  // Restore session from SharedPreferences
+  Future<void> _restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('auth_token');
+      final savedUserId = prefs.getString('user_id');
+      
+      if (savedToken != null && savedUserId != null) {
+        _authToken = savedToken;
+        // IMPORTANT: Set token in ApiService
+        _apiService.setAuthToken(savedToken);
+        
+        // Try to get current user info from API
+        try {
+          _currentUser = await _apiService.getCurrentUser();
+          notifyListeners();
+        } catch (e) {
+          // If token is expired or invalid, clear session
+          print('Failed to restore session: $e');
+          await logout();
+        }
+      }
+    } catch (e) {
+      print('Error restoring session: $e');
+    }
+  }
 
   Future<void> login(String email, String password) async {
     _isLoading = true;
@@ -131,6 +161,7 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> loadSavedAuth() async {
+    print('DEBUG loadSavedAuth: method called');
     _isLoading = true;
     notifyListeners();
 
@@ -147,6 +178,7 @@ class AuthProvider with ChangeNotifier {
         print('DEBUG loadSavedAuth: Token set to ApiService');
         
         try {
+          print('DEBUG loadSavedAuth: Calling getUser with userId: $userId');
           _currentUser = await _apiService.getUser(userId);
           print('DEBUG loadSavedAuth: User loaded successfully: ${_currentUser?.email}');
         } catch (e) {
@@ -180,6 +212,48 @@ class AuthProvider with ChangeNotifier {
         _currentUser = updatedUser;
       } else {
         _currentUser = await _apiService.updateUser(updatedUser);
+      }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> uploadProfilePhoto(String base64Image) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        _currentUser = _currentUser?.copyWith(photoUrl: base64Image);
+      } else {
+        _currentUser = await _apiService.uploadProfilePhoto(base64Image);
+      }
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> changePassword(String currentPassword, String newPassword, String confirmPassword) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        // Mock password change - just succeed
+      } else {
+        await _apiService.changePassword(currentPassword, newPassword, confirmPassword);
       }
       _isLoading = false;
       notifyListeners();

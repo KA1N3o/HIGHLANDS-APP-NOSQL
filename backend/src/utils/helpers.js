@@ -159,7 +159,7 @@ function errorResponse(message, statusCode = 500, errors = null) {
 /**
  * Format success response
  */
-function successResponse(data, message = 'Success') {
+function successResponse(message, data = null) {
   return {
     success: true,
     message,

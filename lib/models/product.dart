@@ -64,7 +64,7 @@ class Product {
       if (value is List) {
         return value
             .whereType<Map<String, dynamic>>()
-            .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
+            .map((e) => ProductOption.fromJson(e))
             .toList();
       }
       if (value is String) {
@@ -73,7 +73,7 @@ class Product {
           if (decoded is List) {
             return decoded
                 .whereType<Map<String, dynamic>>()
-                .map((e) => ProductOption.fromJson(e as Map<String, dynamic>))
+                .map((e) => ProductOption.fromJson(e))
                 .toList();
           }
         } catch (e) {

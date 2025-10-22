@@ -4,6 +4,7 @@ import 'store.dart';
 class Order {
   final String id;
   final String userId;
+  final String? userName;
   final Store store;
   final List<CartItem> items;
   final double subtotal;
@@ -25,6 +26,7 @@ class Order {
   Order({
     required this.id,
     required this.userId,
+    this.userName,
     required this.store,
     required this.items,
     required this.subtotal,
@@ -67,6 +69,7 @@ class Order {
     return Order(
       id: json['id']?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
+      userName: json['userName']?.toString(),
       store: Store.fromJson(json['store'] as Map<String, dynamic>),
       items: (json['items'] as List<dynamic>)
           .map((e) => CartItem.fromJson(e as Map<String, dynamic>))
@@ -126,6 +129,7 @@ class Order {
       'paymentMethod': paymentMethod.name,
       'paymentStatus': paymentStatus.name,
       'deliveryMethod': deliveryMethod.name,
+      'deliveryAddress': deliveryAddress,
       'orderTime': orderTime.toIso8601String(),
       'pickupTime': pickupTime?.toIso8601String(),
       'completedTime': completedTime?.toIso8601String(),
@@ -136,6 +140,7 @@ class Order {
   Order copyWith({
     String? id,
     String? userId,
+    String? userName,
     Store? store,
     List<CartItem>? items,
     double? subtotal,
@@ -157,6 +162,7 @@ class Order {
     return Order(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      userName: userName ?? this.userName,
       store: store ?? this.store,
       items: items ?? this.items,
       subtotal: subtotal ?? this.subtotal,

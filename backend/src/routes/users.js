@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const userService = require('../services/userService');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
-const { updateUserValidation, validate } = require('../middleware/validator');
+const { updateUserValidation, changePasswordValidation, validate } = require('../middleware/validator');
 const { successResponse, errorResponse } = require('../utils/helpers');
 
 /**
@@ -53,6 +53,33 @@ router.put('/me', authMiddleware, async (req, res, next) => {
     const user = await userService.updateUser(userId, req.body);
     
     res.status(200).json(successResponse('Profile updated successfully', user));
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/users/me/photo
+ * @desc    Upload profile photo (base64)
+ * @access  Private
+ */
+router.post('/me/photo', authMiddleware, async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const { photoUrl } = req.body;
+
+    if (!photoUrl) {
+      return res.status(400).json(errorResponse('Photo data is required', 400));
+    }
+
+    // Validate base64 format (should start with data:image/)
+    if (!photoUrl.startsWith('data:image/')) {
+      return res.status(400).json(errorResponse('Invalid photo format. Must be base64 encoded image', 400));
+    }
+
+    const user = await userService.updateUser(userId, { photoUrl });
+    
+    res.status(200).json(successResponse('Profile photo updated successfully', user));
   } catch (error) {
     next(error);
   }
@@ -139,6 +166,27 @@ router.put('/me/addresses/:index/default', authMiddleware, async (req, res, next
   } catch (error) {
     if (error.message === 'Invalid address index') {
       return res.status(400).json(errorResponse(error.message, 400));
+    }
+    next(error);
+  }
+});
+
+/**
+ * @route   POST /api/users/me/change-password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.post('/me/change-password', authMiddleware, changePasswordValidation, validate, async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const { currentPassword, newPassword } = req.body;
+
+    await userService.changePassword(userId, currentPassword, newPassword);
+    
+    res.status(200).json(successResponse('Password changed successfully', null));
+  } catch (error) {
+    if (error.message === 'Current password is incorrect') {
+      return res.status(401).json(errorResponse(error.message, 401));
     }
     next(error);
   }

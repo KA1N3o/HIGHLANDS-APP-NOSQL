@@ -81,6 +81,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 // Name field
                 TextFormField(
                   controller: _nameController,
+                  keyboardType: TextInputType.name,
+                  textInputAction: TextInputAction.next,
+                  textCapitalization: TextCapitalization.words,
+                  enableIMEPersonalizedLearning: false,
                   decoration: const InputDecoration(
                     labelText: 'Họ và tên',
                     prefixIcon: Icon(Icons.person_outline),
@@ -98,6 +102,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  enableIMEPersonalizedLearning: false,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.email_outlined),
@@ -118,6 +124,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  enableIMEPersonalizedLearning: false,
                   decoration: const InputDecoration(
                     labelText: 'Số điện thoại',
                     prefixIcon: Icon(Icons.phone_outlined),
@@ -138,6 +146,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
+                  enableIMEPersonalizedLearning: false,
                   decoration: InputDecoration(
                     labelText: 'Mật khẩu',
                     prefixIcon: const Icon(Icons.lock_outline),
@@ -170,6 +180,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
+                  textInputAction: TextInputAction.done,
+                  enableIMEPersonalizedLearning: false,
                   decoration: InputDecoration(
                     labelText: 'Xác nhận mật khẩu',
                     prefixIcon: const Icon(Icons.lock_outline),

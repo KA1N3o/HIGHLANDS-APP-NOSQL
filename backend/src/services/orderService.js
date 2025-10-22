@@ -9,6 +9,7 @@ const {
 const storeService = require('./storeService');
 const productService = require('./productService');
 const deliveryService = require('./deliveryService');
+const userService = require('./userService');
 const Order = require('../models/Order');
 
 class OrderService {
@@ -17,6 +18,9 @@ class OrderService {
     this._storeCache = new Map();
     this._storeCacheTTL = 30 * 60 * 1000; // 30 minutes
     this._orderRowKeyCache = new Map();
+    // In-memory cache for users
+    this._userCache = new Map();
+    this._userCacheTTL = 30 * 60 * 1000; // 30 minutes
     
     // Pre-load all stores on startup
     this._preloadStores();
@@ -69,6 +73,33 @@ class OrderService {
         isOpen: false,
         openTime: '08:00',
         closeTime: '22:00'
+      };
+    }
+  }
+
+  /**
+   * Get user with caching
+   */
+  async getUserWithCache(userId) {
+    const cached = this._userCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp) < this._userCacheTTL) {
+      return cached.data;
+    }
+
+    try {
+      const user = await userService.getUserById(userId);
+      this._userCache.set(userId, {
+        data: user,
+        timestamp: Date.now()
+      });
+      return user;
+    } catch (error) {
+      // Return fallback if user not found
+      return {
+        id: userId,
+        name: 'Unknown User',
+        email: '',
+        phone: ''
       };
     }
   }
@@ -293,15 +324,21 @@ class OrderService {
    */
   async getUserOrders(userId, limit = 50) {
     try {
+      const startTime = Date.now();
       // OPTIMIZATION: Scan all orders and filter by userId in memory
       // This is MUCH faster than querying index then fetching each order individually
-      const allOrders = await this.getAllOrders(100); // Get up to 100 orders
+      const allOrders = await this.getAllOrders(50); // Get up to 50 orders to filter from (reduced for performance)
       
       // Filter by userId
       const userOrders = allOrders.filter(order => order.userId === userId);
       
       // Apply limit
-      return userOrders.slice(0, limit);
+      const result = userOrders.slice(0, limit);
+      
+      const duration = Date.now() - startTime;
+      console.log(`Orders: getUserOrders returned ${result.length} orders in ${duration}ms`);
+      
+      return result;
     } catch (error) {
       console.error(`Error getting user orders for ${userId}:`, error.message);
       // Return empty array if there's an error (e.g., no orders exist yet)
@@ -315,25 +352,49 @@ class OrderService {
   async getOrderById(orderId) {
     const ordersTable = tables.orders;
 
-    // Find order by partial key match
-    const [rows] = await ordersTable.getRows();
+    // Check cache first
+    let orderRowKey = this._orderRowKeyCache ? this._orderRowKeyCache.get(orderId) : null;
     
-    console.log(`DEBUG: Searching for order with ID: ${orderId}`);
-    console.log(`DEBUG: Found ${rows.length} total order rows`);
-    
-    const orderRow = rows.find((row) => {
-      const matches = row.id.endsWith(`#${orderId}`);
-      console.log(`DEBUG: Checking row ${row.id} - matches: ${matches}`);
-      return matches;
-    });
+    // If not in cache, find by partial key match with limit
+    if (!orderRowKey) {
+      const [rows] = await ordersTable.getRows({ limit: 100 });
+      
+      console.log(`DEBUG: Searching for order with ID: ${orderId}`);
+      console.log(`DEBUG: Found ${rows.length} total order rows`);
+      
+      const orderRow = rows.find((row) => {
+        const matches = row.id.endsWith(`#${orderId}`);
+        return matches;
+      });
 
-    if (!orderRow) {
-      console.log(`DEBUG: Order not found for ID: ${orderId}`);
+      if (!orderRow) {
+        console.log(`DEBUG: Order not found for ID: ${orderId}`);
+        throw new Error('Order not found');
+      }
+
+      orderRowKey = orderRow.id;
+      
+      // Cache the row key
+      if (!this._orderRowKeyCache) {
+        this._orderRowKeyCache = new Map();
+      }
+      this._orderRowKeyCache.set(orderId, orderRowKey);
+      
+      console.log(`DEBUG: Found order row:`, JSON.stringify(orderRow, null, 2));
+      return this.parseOrderData(orderRow.id, orderRow);
+    }
+    
+    // If in cache, get directly
+    const row = ordersTable.row(orderRowKey);
+    const [data] = await row.get();
+    
+    if (!data) {
+      // Cache was stale, remove it
+      this._orderRowKeyCache.delete(orderId);
       throw new Error('Order not found');
     }
-
-    console.log(`DEBUG: Found order row:`, JSON.stringify(orderRow, null, 2));
-    return this.parseOrderData(orderRow.id, orderRow);
+    
+    return this.parseOrderData(orderRowKey, data);
   }
 
   /**
@@ -450,10 +511,23 @@ class OrderService {
     }
 
     const ordersTable = tables.orders;
-    const [rows] = await ordersTable.getRows();
-    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+    
+    // Use cached row key or find with limit
+    let orderRowKey = this._orderRowKeyCache ? this._orderRowKeyCache.get(orderId) : null;
+    if (!orderRowKey) {
+      const [rows] = await ordersTable.getRows({ limit: 100 });
+      const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+      if (!orderRow) {
+        throw new Error('Order not found');
+      }
+      orderRowKey = orderRow.id;
+      if (!this._orderRowKeyCache) {
+        this._orderRowKeyCache = new Map();
+      }
+      this._orderRowKeyCache.set(orderId, orderRowKey);
+    }
 
-    const row = ordersTable.row(orderRow.id);
+    const row = ordersTable.row(orderRowKey);
     
     const mutations = createMutations('info', {
       status: 'cancelled',
@@ -482,15 +556,24 @@ class OrderService {
   async updatePaymentStatus(orderId, paymentStatus) {
     const ordersTable = tables.orders;
 
-    // Find order
-    const [rows] = await ordersTable.getRows();
-    const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
+    // Use cached row key or find with limit
+    let orderRowKey = this._orderRowKeyCache ? this._orderRowKeyCache.get(orderId) : null;
+    if (!orderRowKey) {
+      const [rows] = await ordersTable.getRows({ limit: 100 });
+      const orderRow = rows.find((row) => row.id.endsWith(`#${orderId}`));
 
-    if (!orderRow) {
-      throw new Error('Order not found');
+      if (!orderRow) {
+        throw new Error('Order not found');
+      }
+      
+      orderRowKey = orderRow.id;
+      if (!this._orderRowKeyCache) {
+        this._orderRowKeyCache = new Map();
+      }
+      this._orderRowKeyCache.set(orderId, orderRowKey);
     }
 
-    const row = ordersTable.row(orderRow.id);
+    const row = ordersTable.row(orderRowKey);
     
     const mutations = createMutations('payment', { status: paymentStatus });
     await row.save(mutations);
@@ -501,7 +584,7 @@ class OrderService {
   /**
    * Parse order data with store cache (optimized for bulk operations)
    */
-  async parseOrderDataWithCache(rowKey, data, storeCache) {
+  async parseOrderDataWithCache(rowKey, data, storeCache, userCache = null) {
     // Extract order ID from row key
     const orderId = rowKey.split('#').pop();
 
@@ -573,9 +656,13 @@ class OrderService {
       closeTime: '22:00'
     };
 
+    // Get user from cache if available
+    const user = userCache ? userCache.get(data.userId) : null;
+
     const parsedOrder = {
       id: orderId || '',
       userId: data.userId || '',
+      userName: user ? user.name : null,
       store: {
         id: store.id || data.storeId || 'unknown',
         name: store.name || 'Unknown Store',
@@ -735,11 +822,13 @@ class OrderService {
   /**
    * Get all orders (admin only)
    */
-  async getAllOrders(limit = 100) {
+  async getAllOrders(limit = 20) {
     try {
+      const startTime = Date.now();
       const ordersTable = tables.orders;
       
       const [rows] = await ordersTable.getRows({ limit });
+      console.log(`Orders: Fetched ${rows.length} rows in ${Date.now() - startTime}ms`);
 
       // If no rows found, return empty array
       if (!rows || rows.length === 0) {
@@ -752,8 +841,9 @@ class OrderService {
         this._orderRowKeyCache = new Map();
       }
 
-      // Pre-fetch all unique stores to avoid N+1 queries
+      // Pre-fetch all unique stores and users to avoid N+1 queries
       const storeIds = new Set();
+      const userIds = new Set();
       const rowData = [];
       
       for (const row of rows) {
@@ -763,6 +853,9 @@ class OrderService {
         if (data.storeId) {
           storeIds.add(data.storeId);
         }
+        if (data.userId) {
+          userIds.add(data.userId);
+        }
         
         // Cache the rowKey for quick updates later
         this._orderRowKeyCache.set(orderId, row.id);
@@ -771,22 +864,34 @@ class OrderService {
       }
       
       // Fetch all stores in parallel with caching
+      const fetchStartTime = Date.now();
       const storeCache = new Map();
       const storePromises = Array.from(storeIds).map(async (storeId) => {
         const store = await this.getStoreWithCache(storeId);
         storeCache.set(storeId, store);
       });
       
-      await Promise.all(storePromises);
+      // Fetch all users in parallel with caching
+      const userCache = new Map();
+      const userPromises = Array.from(userIds).map(async (userId) => {
+        const user = await this.getUserWithCache(userId);
+        userCache.set(userId, user);
+      });
+      
+      await Promise.all([...storePromises, ...userPromises]);
+      console.log(`Orders: Fetched ${storeIds.size} stores and ${userIds.size} users in ${Date.now() - fetchStartTime}ms`);
 
-      // Now parse orders with cached stores
+      // Now parse orders with cached stores and users
+      const parseStartTime = Date.now();
       const orders = [];
       for (const { id, data } of rowData) {
-        const order = await this.parseOrderDataWithCache(id, data, storeCache);
+        const order = await this.parseOrderDataWithCache(id, data, storeCache, userCache);
         orders.push(order);
       }
+      console.log(`Orders: Parsed ${orders.length} orders in ${Date.now() - parseStartTime}ms`);
 
-      console.log(`DEBUG: Parsed ${orders.length} orders successfully`);
+      const totalTime = Date.now() - startTime;
+      console.log(`Orders: getAllOrders completed in ${totalTime}ms (${orders.length} orders)`);
       return orders;
     } catch (error) {
       console.error('Error getting all orders:', error.message);

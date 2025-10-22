@@ -16,7 +16,7 @@ router.post('/', authMiddleware, createOrderValidation, validate, async (req, re
     
     const order = await orderService.createOrder(userId, req.body);
     
-    res.status(201).json(successResponse(order, 'Order created successfully'));
+    res.status(201).json(successResponse('Order created successfully', order));
   } catch (error) {
     next(error);
   }
@@ -46,7 +46,7 @@ router.get('/user/:userId', authMiddleware, async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 50;
     const orders = await orderService.getUserOrders(paramUserId, limit);
     
-    res.status(200).json(successResponse(orders));
+    res.status(200).json(successResponse('User orders retrieved', orders));
   } catch (error) {
     next(error);
   }
@@ -68,7 +68,7 @@ router.get('/:orderId', authMiddleware, async (req, res, next) => {
       return res.status(403).json(errorResponse('Access denied', 403));
     }
     
-    res.status(200).json(successResponse(order));
+    res.status(200).json(successResponse('Order retrieved', order));
   } catch (error) {
     next(error);
   }
@@ -91,7 +91,7 @@ router.patch('/:orderId/status', authMiddleware, staffMiddleware, async (req, re
     
     const order = await orderService.updateOrderStatus(orderId, status);
     
-    res.status(200).json(successResponse(order, 'Order status updated'));
+    res.status(200).json(successResponse('Order status updated', order));
   } catch (error) {
     if (error.message === 'Order not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -113,7 +113,7 @@ router.post('/:orderId/cancel', authMiddleware, async (req, res, next) => {
     
     const order = await orderService.cancelOrder(orderId, userId, reason);
     
-    res.status(200).json(successResponse(order, 'Order cancelled successfully'));
+    res.status(200).json(successResponse('Order cancelled successfully', order));
   } catch (error) {
     if (error.message === 'Order not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -142,7 +142,7 @@ router.patch('/:orderId/payment', authMiddleware, async (req, res, next) => {
     
     const order = await orderService.updatePaymentStatus(orderId, paymentStatus);
     
-    res.status(200).json(successResponse(order, 'Payment status updated'));
+    res.status(200).json(successResponse('Payment status updated', order));
   } catch (error) {
     if (error.message === 'Order not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -162,10 +162,10 @@ router.get('/', authMiddleware, staffMiddleware, async (req, res, next) => {
     
     const orders = await orderService.getAllOrders(limit);
     
-    res.status(200).json(successResponse({
+    res.status(200).json(successResponse('Orders retrieved', {
       orders,
       count: orders.length,
-    }, 'Orders retrieved'));
+    }));
   } catch (error) {
     next(error);
   }

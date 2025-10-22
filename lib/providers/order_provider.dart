@@ -10,7 +10,8 @@ class OrderProvider with ChangeNotifier {
   Order? _currentOrder;
   bool _useMockData = false; // Set to false when backend is ready
   DateTime? _lastLoadTime;
-  static const Duration _cacheValidDuration = Duration(minutes: 2);
+  // Increased cache duration to 5 minutes for better performance
+  static const Duration _cacheValidDuration = Duration(minutes: 5);
   String? _lastUserId; // Track which user's orders are cached
 
   OrderProvider(this._apiService);
@@ -28,6 +29,7 @@ class OrderProvider with ChangeNotifier {
   Future<void> loadUserOrders(String userId, {bool forceRefresh = false}) async {
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && _isCacheValid(userId) && _orders.isNotEmpty) {
+      print('OrderProvider: Returning ${_orders.length} orders from cache');
       return;
     }
 
@@ -35,6 +37,8 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final startTime = DateTime.now();
+      
       if (_useMockData) {
         // Simulate API delay
         await Future.delayed(const Duration(milliseconds: 500));
@@ -43,20 +47,26 @@ class OrderProvider with ChangeNotifier {
       } else {
         _orders = await _apiService.getUserOrders(userId);
       }
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('OrderProvider: Loaded ${_orders.length} user orders in ${duration}ms');
+      
       _lastLoadTime = DateTime.now();
       _lastUserId = userId;
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      print('OrderProvider: Error loading user orders: $e');
       _isLoading = false;
       notifyListeners();
       rethrow;
     }
   }
 
-  Future<void> loadAllOrders({int limit = 100, bool forceRefresh = false}) async {
+  Future<void> loadAllOrders({int limit = 20, bool forceRefresh = false}) async {
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && _isCacheValid(null) && _orders.isNotEmpty) {
+      print('OrderProvider: Returning ${_orders.length} orders from cache');
       return;
     }
 
@@ -64,22 +74,27 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final startTime = DateTime.now();
+      
       if (_useMockData) {
         // Simulate API delay
         await Future.delayed(const Duration(milliseconds: 500));
         // Load mock orders
         _orders = MockDataService.getMockOrders();
       } else {
-        print('DEBUG: Loading all orders with limit $limit');
+        print('OrderProvider: Loading all orders with limit $limit');
         _orders = await _apiService.getAllOrders(limit: limit);
-        print('DEBUG: Successfully loaded ${_orders.length} orders');
       }
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('OrderProvider: Loaded ${_orders.length} orders in ${duration}ms');
+      
       _lastLoadTime = DateTime.now();
       _lastUserId = null; // Admin loads all users
       _isLoading = false;
       notifyListeners();
     } catch (e, stackTrace) {
-      print('ERROR loading orders: $e');
+      print('OrderProvider ERROR: $e');
       print('Stack trace: $stackTrace');
       _isLoading = false;
       notifyListeners();
@@ -187,6 +202,51 @@ class OrderProvider with ChangeNotifier {
       print('Order status updated successfully, notified listeners');
     } catch (e) {
       print('Error updating order status: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> cancelOrder(String orderId, {String? reason}) async {
+    try {
+      print('Cancelling order $orderId');
+      Order updatedOrder;
+      
+      if (_useMockData) {
+        // Simulate API delay
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Find and update order in mock data
+        final orderIndex = _orders.indexWhere((o) => o.id == orderId);
+        if (orderIndex >= 0) {
+          final order = _orders[orderIndex];
+          updatedOrder = order.copyWith(status: OrderStatus.cancelled);
+          _orders[orderIndex] = updatedOrder;
+        } else {
+          throw Exception('Order not found');
+        }
+      } else {
+        updatedOrder = await _apiService.cancelOrder(orderId, reason: reason);
+        print('Order cancelled successfully: ${updatedOrder.id}');
+        
+        final index = _orders.indexWhere((o) => o.id == orderId);
+        
+        if (index >= 0) {
+          _orders[index] = updatedOrder;
+          print('Updated cancelled order in list at index $index');
+        } else {
+          _orders.add(updatedOrder);
+          print('Added cancelled order to list');
+        }
+      }
+      
+      if (_currentOrder?.id == orderId) {
+        _currentOrder = updatedOrder;
+      }
+      
+      notifyListeners();
+      print('Order cancelled successfully, notified listeners');
+    } catch (e) {
+      print('Error cancelling order: $e');
       rethrow;
     }
   }

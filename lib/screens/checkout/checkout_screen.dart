@@ -20,6 +20,8 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   PaymentMethod _selectedPaymentMethod = PaymentMethod.card;
   final _notesController = TextEditingController();
+  final _streetAddressController = TextEditingController();
+  final _wardController = TextEditingController();
   DateTime? _selectedPickupTime;
   bool _isProcessing = false;
 
@@ -39,6 +41,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _notesController.dispose();
+    _streetAddressController.dispose();
+    _wardController.dispose();
     super.dispose();
   }
 
@@ -100,6 +104,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         throw Exception('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại');
       }
 
+      // Validate delivery address if delivery method is selected
+      Map<String, dynamic>? deliveryAddress;
+      if (cartProvider.deliveryMethod == DeliveryMethod.delivery) {
+        if (_streetAddressController.text.trim().isEmpty) {
+          throw Exception('Vui lòng nhập số nhà và đường');
+        }
+        if (_wardController.text.trim().isEmpty) {
+          throw Exception('Vui lòng nhập phường/xã');
+        }
+        deliveryAddress = {
+          'street': _streetAddressController.text.trim(),
+          'ward': _wardController.text.trim(),
+        };
+      }
+
       final order = Order(
         id: const Uuid().v4(),
         userId: authProvider.currentUser!.id,
@@ -113,6 +132,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         paymentMethod: _selectedPaymentMethod,
         paymentStatus: PaymentStatus.pending,
         deliveryMethod: cartProvider.deliveryMethod,
+        deliveryAddress: deliveryAddress,
         orderTime: DateTime.now(),
         pickupTime: _selectedPickupTime,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
@@ -241,6 +261,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     );
                   }),
+                  
+                  // Delivery address fields (only show when delivery method is selected)
+                  if (cartProvider.deliveryMethod == DeliveryMethod.delivery) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Địa chỉ giao hàng',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _streetAddressController,
+                      decoration: const InputDecoration(
+                        labelText: 'Số nhà, tên đường',
+                        hintText: 'VD: 123 Đường Lê Lợi',
+                        prefixIcon: Icon(Icons.home),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _wardController,
+                      decoration: const InputDecoration(
+                        labelText: 'Phường/Xã',
+                        hintText: 'VD: Phường Bến Nghé',
+                        prefixIcon: Icon(Icons.location_on),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // Pickup time
@@ -292,6 +339,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: _notesController,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    textCapitalization: TextCapitalization.sentences,
+                    enableIMEPersonalizedLearning: false,
                     maxLines: 3,
                     decoration: const InputDecoration(
                       hintText: 'Thêm ghi chú cho đơn hàng...',

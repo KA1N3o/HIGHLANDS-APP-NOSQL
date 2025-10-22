@@ -74,11 +74,31 @@ const updateUserValidation = [
     .withMessage('Valid phone number is required (10 digits)'),
 ];
 
+// Password change validation
+const changePasswordValidation = [
+  body('currentPassword')
+    .notEmpty()
+    .withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 6 })
+    .withMessage('New password must be at least 6 characters'),
+  body('confirmPassword')
+    .notEmpty()
+    .withMessage('Confirm password is required')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    }),
+];
+
 module.exports = {
   validate,
   registerValidation,
   loginValidation,
   createOrderValidation,
   updateUserValidation,
+  changePasswordValidation,
 };
 

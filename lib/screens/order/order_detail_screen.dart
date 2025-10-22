@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:barcode_widget/barcode_widget.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:gal/gal.dart';
+import 'dart:typed_data';
 import '../../models/order.dart';
 import '../../providers/order_provider.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
+import '../../widgets/cached_image.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
@@ -18,6 +22,7 @@ class OrderDetailScreen extends StatefulWidget {
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late Order _order;
   bool _isRefreshing = false;
+  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
@@ -66,6 +71,107 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  Future<void> _saveBarcode() async {
+    try {
+      // Check if we have permission
+      final hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        await Gal.requestAccess();
+      }
+
+      // Capture the barcode as an image
+      final Uint8List? imageBytes = await _screenshotController.capture();
+      
+      if (imageBytes != null) {
+        // Save to gallery using Gal
+        await Gal.putImageBytes(
+          imageBytes,
+          name: 'highlands_order_${_order.id.substring(0, 8)}',
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã lưu mã vạch vào thư viện'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelOrder() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hủy đơn hàng'),
+        content: const Text('Bạn có chắc chắn muốn hủy đơn hàng này?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Không'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('Hủy đơn'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Cancel order
+      await context.read<OrderProvider>().cancelOrder(
+        _order.id,
+        reason: 'Customer request',
+      );
+
+      if (mounted) {
+        // Get updated order from provider and update local state immediately
+        final updatedOrder = context
+            .read<OrderProvider>()
+            .orders
+            .firstWhere((o) => o.id == _order.id);
+        
+        setState(() {
+          _order = updatedOrder;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã hủy đơn hàng thành công'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -104,6 +210,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         _getStatusIcon(_order.status),
@@ -117,6 +225,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               color: _getStatusColor(_order.status),
                               fontWeight: FontWeight.bold,
                             ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -144,65 +253,45 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 16),
-                      _buildTimelineItem(
-                        'Đã đặt hàng',
-                        _order.orderTime,
-                        true,
-                      ),
-                      _buildTimelineItem(
-                        'Đã xác nhận',
-                        null,
-                        _order.status.index >= OrderStatus.confirmed.index,
-                      ),
-                      _buildTimelineItem(
-                        'Đang chuẩn bị',
-                        null,
-                        _order.status.index >= OrderStatus.preparing.index,
-                      ),
-                      _buildTimelineItem(
-                        'Sẵn sàng',
-                        null,
-                        _order.status.index >= OrderStatus.ready.index,
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Order info
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Thông tin đơn hàng',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildInfoRow('Mã đơn hàng',
-                          '#${_order.id.substring(0, 8).toUpperCase()}'),
-                      _buildInfoRow('Cửa hàng', _order.store.name),
-                      _buildInfoRow('Địa chỉ', _order.store.address),
-                      _buildInfoRow('Số điện thoại', _order.store.phone),
-                      _buildInfoRow(
-                        'Phương thức nhận hàng',
-                        _getDeliveryMethodName(_order.deliveryMethod),
-                      ),
-                      if (_order.pickupTime != null)
-                        _buildInfoRow(
-                          'Thời gian nhận',
-                          '${_order.pickupTime!.day}/${_order.pickupTime!.month} - ${_order.pickupTime!.hour}:${_order.pickupTime!.minute.toString().padLeft(2, '0')}',
+                      // Show normal timeline if not cancelled
+                      if (_order.status != OrderStatus.cancelled) ...[
+                        _buildTimelineItem(
+                          'Đã đặt hàng',
+                          _order.orderTime,
+                          true,
                         ),
-                      _buildInfoRow(
-                        'Thanh toán',
-                        _getPaymentMethodName(_order.paymentMethod),
-                      ),
-                      if (_order.notes != null)
-                        _buildInfoRow('Ghi chú', _order.notes!),
+                        _buildTimelineItem(
+                          'Đã xác nhận',
+                          null,
+                          _order.status.index >= OrderStatus.confirmed.index,
+                        ),
+                        _buildTimelineItem(
+                          'Đang chuẩn bị',
+                          null,
+                          _order.status.index >= OrderStatus.preparing.index,
+                        ),
+                        _buildTimelineItem(
+                          'Sẵn sàng',
+                          null,
+                          _order.status.index >= OrderStatus.ready.index,
+                          isLast: true,
+                        ),
+                      ],
+                      // Show cancelled timeline
+                      if (_order.status == OrderStatus.cancelled) ...[
+                        _buildTimelineItem(
+                          'Đã đặt hàng',
+                          _order.orderTime,
+                          true,
+                        ),
+                        _buildTimelineItem(
+                          'Đã hủy',
+                          null,
+                          true,
+                          isLast: true,
+                          isCancelled: true,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -227,34 +316,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ClipRRect(
+                              CachedImage(
+                                imageUrl: item.product.imageUrl,
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
                                 borderRadius: BorderRadius.circular(8),
-                                child: CachedNetworkImage(
-                                  imageUrl: item.product.imageUrl,
-                                  width: 60,
-                                  height: 60,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    width: 60,
-                                    height: 60,
-                                    color: AppTheme.backgroundColor,
-                                    child: const Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) {
-                                    return Container(
-                                      width: 60,
-                                      height: 60,
-                                      color: AppTheme.backgroundColor,
-                                      child: const Icon(Icons.coffee),
-                                    );
-                                  },
-                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -316,6 +383,136 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Barcode section
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Mã đơn hàng',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      Screenshot(
+                        controller: _screenshotController,
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          color: Colors.white,
+                          child: Column(
+                            children: [
+                              BarcodeWidget(
+                                barcode: Barcode.code128(),
+                                data: 'HL${_order.id.toUpperCase()}',
+                                width: 250,
+                                height: 100,
+                                drawText: true,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '#${_order.id.substring(0, 8).toUpperCase()}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                              ),
+                              
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _saveBarcode,
+                          icon: const Icon(Icons.download),
+                          label: const Text('Lưu mã vạch'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Order info
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Thông tin đơn hàng',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildInfoRow('Mã đơn hàng',
+                          '#${_order.id.substring(0, 8).toUpperCase()}'),
+                      _buildInfoRow('Cửa hàng', _order.store.name),
+                      _buildInfoRow('Địa chỉ', _order.store.address),
+                      _buildInfoRow('Số điện thoại', _order.store.phone),
+                      _buildInfoRow(
+                        'Phương thức nhận hàng',
+                        _getDeliveryMethodName(_order.deliveryMethod),
+                      ),
+                      if (_order.deliveryAddress != null) ...[
+                        _buildInfoRow(
+                          'Địa chỉ giao hàng',
+                          '${_order.deliveryAddress!['street']}, ${_order.deliveryAddress!['ward']}',
+                        ),
+                      ],
+                      if (_order.pickupTime != null)
+                        _buildInfoRow(
+                          'Thời gian nhận',
+                          '${_order.pickupTime!.day}/${_order.pickupTime!.month} - ${_order.pickupTime!.hour}:${_order.pickupTime!.minute.toString().padLeft(2, '0')}',
+                        ),
+                      _buildInfoRow(
+                        'Thanh toán',
+                        _getPaymentMethodName(_order.paymentMethod),
+                      ),
+                      if (_order.notes != null)
+                        _buildInfoRow('Ghi chú', _order.notes!),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Cancel order button (only show if order can be cancelled)
+              if (_order.status == OrderStatus.pending || 
+                  _order.status == OrderStatus.confirmed) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _cancelOrder,
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('Hủy đơn hàng'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.errorColor,
+                      side: const BorderSide(color: AppTheme.errorColor),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -324,7 +521,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Widget _buildTimelineItem(String title, DateTime? time, bool isCompleted,
-      {bool isLast = false}) {
+      {bool isLast = false, bool isCancelled = false}) {
+    final color = isCancelled 
+        ? AppTheme.errorColor 
+        : (isCompleted ? AppTheme.primaryGreen : Colors.grey[300]!);
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -334,18 +535,22 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: isCompleted ? AppTheme.primaryGreen : Colors.grey[300],
+                color: color,
                 shape: BoxShape.circle,
               ),
               child: isCompleted
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  ? Icon(
+                      isCancelled ? Icons.close : Icons.check, 
+                      size: 16, 
+                      color: Colors.white,
+                    )
                   : null,
             ),
             if (!isLast)
               Container(
                 width: 2,
                 height: 40,
-                color: isCompleted ? AppTheme.primaryGreen : Colors.grey[300],
+                color: color,
               ),
           ],
         ),
@@ -361,9 +566,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight:
                             isCompleted ? FontWeight.bold : FontWeight.normal,
-                        color: isCompleted
-                            ? AppTheme.textPrimary
-                            : AppTheme.textSecondary,
+                        color: isCancelled 
+                            ? AppTheme.errorColor
+                            : (isCompleted
+                                ? AppTheme.textPrimary
+                                : AppTheme.textSecondary),
                       ),
                 ),
                 if (time != null)

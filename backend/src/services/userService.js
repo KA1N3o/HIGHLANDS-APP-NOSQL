@@ -1,3 +1,4 @@
+const bcrypt = require('bcrypt');
 const { tables } = require('../config/bigtable');
 const { parseRowData, createMutations } = require('../utils/helpers');
 const User = require('../models/User');
@@ -28,6 +29,7 @@ class UserService {
       createdAt: userData.createdAt,
       addresses: userData.addresses ? JSON.parse(userData.addresses) : [],
       defaultAddressIndex: userData.defaultAddressIndex ? parseInt(userData.defaultAddressIndex) : 0,
+      assignedStoreId: userData.assignedStoreId,
     };
   }
 
@@ -185,6 +187,7 @@ class UserService {
         phone: userData.phone || '',
         role: userData.role || 'customer',
         createdAt: userData.createdAt || new Date().toISOString(),
+        assignedStoreId: userData.assignedStoreId,
       };
     });
   }
@@ -192,7 +195,7 @@ class UserService {
   /**
    * Update user role (admin only)
    */
-  async updateUserRole(userId, role) {
+  async updateUserRole(userId, role, assignedStoreId = null) {
     const usersTable = tables.users;
     const row = usersTable.row(userId);
 
@@ -202,10 +205,84 @@ class UserService {
       throw new Error('User not found');
     }
 
-    const mutations = createMutations('profile', { role });
+    const updateData = { role };
+    
+    // Always update assignedStoreId when changing role
+    // Store empty string for non-staff roles or when not assigned
+    if (role === 'staff' && assignedStoreId) {
+      updateData.assignedStoreId = assignedStoreId;
+    } else {
+      // Clear assignedStoreId for non-staff roles or when not provided
+      updateData.assignedStoreId = '';
+    }
+
+    const mutations = createMutations('profile', updateData);
     await row.save(mutations);
 
     return this.getUserById(userId);
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId, currentPassword, newPassword) {
+    const usersTable = tables.users;
+    const row = usersTable.row(userId);
+
+    // Check if user exists and get current password hash
+    const [existingData] = await row.get();
+    if (!existingData) {
+      throw new Error('User not found');
+    }
+
+    const userData = parseRowData(existingData);
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(currentPassword, userData.passwordHash || '');
+    if (!isValidPassword) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const newPasswordHash = await bcrypt.hash(newPassword, salt);
+
+    // Update password in database
+    const authMutations = createMutations('auth', {
+      passwordHash: newPasswordHash,
+      salt: salt,
+      passwordChangedAt: new Date().toISOString(),
+    });
+
+    await row.save(authMutations);
+
+    return { success: true, message: 'Password changed successfully' };
+  }
+
+  /**
+   * Delete user (admin only)
+   */
+  async deleteUser(userId) {
+    const usersTable = tables.users;
+    const row = usersTable.row(userId);
+
+    // Check if user exists
+    const [existingData] = await row.get();
+    if (!existingData) {
+      throw new Error('User not found');
+    }
+
+    const userData = parseRowData(existingData);
+
+    // Prevent deleting admin users
+    if (userData.role === 'admin') {
+      throw new Error('Cannot delete admin users');
+    }
+
+    // Delete the user
+    await row.delete();
+
+    return { success: true, message: 'User deleted successfully' };
   }
 }
 

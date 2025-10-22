@@ -10,21 +10,22 @@ class ProductService {
   /**
    * Get all products
    */
-  async getAllProducts(availableOnly = false) {
+  async getAllProducts(availableOnly = false, limit = 100) {
     const startTime = Date.now();
     const productsTable = tables.products;
     
-    // Use cache if available and fresh (5 minutes)
+    // Use cache if available and fresh (10 minutes)
     const cacheKey = `products_${availableOnly}`;
     if (this._productCache && this._productCache[cacheKey]) {
       const cached = this._productCache[cacheKey];
-      if (Date.now() - cached.timestamp < 5 * 60 * 1000) {
+      if (Date.now() - cached.timestamp < 10 * 60 * 1000) {
         console.log(`Products: Returned ${cached.products.length} products from cache`);
         return cached.products;
       }
     }
     
-    const [rows] = await productsTable.getRows();
+    // Add limit to prevent full table scan
+    const [rows] = await productsTable.getRows({ limit });
     console.log(`Products: Fetched ${rows.length} rows in ${Date.now() - startTime}ms`);
 
     let products = rows.map((row) => {
@@ -182,16 +183,16 @@ class ProductService {
   /**
    * Get products by category
    */
-  async getProductsByCategory(category, availableOnly = false) {
-    const allProducts = await this.getAllProducts(availableOnly);
+  async getProductsByCategory(category, availableOnly = false, limit = 100) {
+    const allProducts = await this.getAllProducts(availableOnly, limit);
     return allProducts.filter((product) => product.category === category);
   }
 
   /**
    * Search products by name or keyword
    */
-  async searchProducts(keyword, availableOnly = false) {
-    const allProducts = await this.getAllProducts(availableOnly);
+  async searchProducts(keyword, availableOnly = false, limit = 100) {
+    const allProducts = await this.getAllProducts(availableOnly, limit);
     const lowerKeyword = keyword.toLowerCase();
     
     return allProducts.filter(product => 
@@ -290,6 +291,14 @@ class ProductService {
     this._productCache = {};
     
     console.log(`DEBUG: Product deleted successfully`);
+  }
+
+  /**
+   * Clear product cache
+   */
+  clearCache() {
+    console.log('Clearing product cache');
+    this._productCache = {};
   }
 
   /**

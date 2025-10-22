@@ -1,0 +1,8 @@
+# Di chuyen 2 Croissant tu Banh Ngot sang Banh Mi
+
+# Croissant Bo (pastry001) -> food
+put 'products', 'product#pastry001', 'info:category', 'food'
+
+# Croissant Chocolate (pastry002) -> food
+put 'products', 'product#pastry002', 'info:category', 'food'
+

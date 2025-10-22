@@ -26,6 +26,16 @@ class CachedImage extends StatelessWidget {
       return _buildPlaceholder();
     }
 
+    // Calculate optimal cache sizes based on actual widget size
+    // Use device pixel ratio for sharper images on high-DPI screens
+    final devicePixelRatio = MediaQuery.of(context).devicePixelRatio;
+    final memWidth = width != null ? (width! * devicePixelRatio * 1.5).toInt() : null;
+    final memHeight = height != null ? (height! * devicePixelRatio * 1.5).toInt() : null;
+    
+    // Disk cache limits based on image size - smaller for thumbnails
+    final isSmallImage = (width ?? 0) < 100 || (height ?? 0) < 100;
+    final diskCacheSize = isSmallImage ? 400 : 800;
+
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
@@ -33,10 +43,20 @@ class CachedImage extends StatelessWidget {
       fit: fit,
       placeholder: (context, url) => _buildShimmerPlaceholder(),
       errorWidget: (context, url, error) => _buildErrorPlaceholder(),
-      memCacheWidth: width != null ? (width! * 2).toInt() : null,
-      memCacheHeight: height != null ? (height! * 2).toInt() : null,
-      maxWidthDiskCache: 800,
-      maxHeightDiskCache: 800,
+      memCacheWidth: memWidth,
+      memCacheHeight: memHeight,
+      maxWidthDiskCache: diskCacheSize,
+      maxHeightDiskCache: diskCacheSize,
+      // Add error handling for image decoding issues
+      errorListener: (exception) {
+        // Log the error for debugging (only in debug mode)
+        if (const bool.fromEnvironment('dart.vm.product') == false) {
+          print('CachedNetworkImage error: $exception');
+        }
+      },
+      // Faster fade-in for better perceived performance
+      fadeInDuration: const Duration(milliseconds: 200),
+      fadeOutDuration: const Duration(milliseconds: 50),
     );
 
     if (borderRadius != null) {
@@ -100,4 +120,3 @@ class CachedImage extends StatelessWidget {
     );
   }
 }
-

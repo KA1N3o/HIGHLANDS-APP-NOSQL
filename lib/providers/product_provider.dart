@@ -9,7 +9,8 @@ class ProductProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _useMockData = false; // Set to false when backend is ready
   DateTime? _lastLoadTime;
-  static const Duration _cacheValidDuration = Duration(minutes: 5);
+  // Increased cache duration to match backend (10 minutes)
+  static const Duration _cacheValidDuration = Duration(minutes: 10);
 
   ProductProvider(this._apiService);
 
@@ -25,6 +26,7 @@ class ProductProvider with ChangeNotifier {
   Future<void> loadProducts({bool forceRefresh = false}) async {
     // Return cached data if valid and not forcing refresh
     if (!forceRefresh && _isCacheValid && _products.isNotEmpty) {
+      print('ProductProvider: Returning ${_products.length} products from cache');
       return;
     }
 
@@ -32,6 +34,8 @@ class ProductProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      final startTime = DateTime.now();
+      
       if (_useMockData) {
         // Use mock data for development
         await Future.delayed(const Duration(milliseconds: 500));
@@ -43,6 +47,9 @@ class ProductProvider with ChangeNotifier {
         }
         _products = await _apiService.getProducts();
       }
+      
+      final duration = DateTime.now().difference(startTime).inMilliseconds;
+      print('ProductProvider: Loaded ${_products.length} products in ${duration}ms');
       
       _lastLoadTime = DateTime.now();
       _isLoading = false;

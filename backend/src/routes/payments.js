@@ -30,7 +30,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     };
     
     res.status(200).json(
-      successResponse(paymentResult, 'Payment processed successfully')
+      successResponse('Payment processed successfully', paymentResult)
     );
   } catch (error) {
     next(error);
@@ -56,7 +56,7 @@ router.get('/:orderId', authMiddleware, async (req, res, next) => {
       timestamp: new Date().toISOString(),
     };
     
-    res.status(200).json(successResponse(paymentStatus));
+    res.status(200).json(successResponse('Payment status retrieved', paymentStatus));
   } catch (error) {
     next(error);
   }

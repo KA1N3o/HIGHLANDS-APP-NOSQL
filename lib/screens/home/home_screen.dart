@@ -138,6 +138,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.pushNamed(context, '/stores');
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Lịch sử đặt hàng'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/order-history');
+              },
+            ),
             // Staff menu items (only order management)
             if (authProvider.currentUser?.role == UserRole.staff) ...[
               const Divider(),

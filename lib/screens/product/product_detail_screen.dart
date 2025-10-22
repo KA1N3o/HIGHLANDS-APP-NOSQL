@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../models/product.dart';
 import '../../models/cart_item.dart';
 import '../../providers/cart_provider.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
+import '../../widgets/cached_image.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final Product product;
@@ -131,25 +131,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        CachedNetworkImage(
+                        CachedImage(
                           imageUrl: widget.product.imageUrl,
                           fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            color: AppTheme.backgroundColor,
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) {
-                            return Container(
-                              color: AppTheme.backgroundColor,
-                              child: const Icon(
-                                Icons.coffee,
-                                size: 100,
-                                color: AppTheme.textSecondary,
-                              ),
-                            );
-                          },
                         ),
                         // Unavailable overlay
                         if (!widget.product.isAvailable)
@@ -319,6 +303,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         const SizedBox(height: 12),
                         TextField(
                           controller: _notesController,
+                          keyboardType: TextInputType.multiline,
+                          textInputAction: TextInputAction.newline,
+                          textCapitalization: TextCapitalization.sentences,
+                          enableIMEPersonalizedLearning: false,
                           maxLines: 3,
                           decoration: const InputDecoration(
                             hintText: 'Thêm ghi chú cho món này...',

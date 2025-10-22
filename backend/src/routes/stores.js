@@ -24,7 +24,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
       stores = await storeService.getAllStores();
     }
     
-    res.status(200).json(successResponse(stores));
+    res.status(200).json(successResponse('Stores retrieved', stores));
   } catch (error) {
     next(error);
   }
@@ -41,7 +41,7 @@ router.get('/:storeId', authMiddleware, async (req, res, next) => {
     
     const store = await storeService.getStoreById(storeId);
     
-    res.status(200).json(successResponse(store));
+    res.status(200).json(successResponse('Store retrieved', store));
   } catch (error) {
     next(error);
   }

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
+import '../../widgets/cached_image.dart';
 import '../checkout/checkout_screen.dart';
 
 class CartScreen extends StatelessWidget {
@@ -99,34 +99,12 @@ class CartScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Product image
-                              ClipRRect(
+                              CachedImage(
+                                imageUrl: item.product.imageUrl,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
                                 borderRadius: BorderRadius.circular(8),
-                                child: CachedNetworkImage(
-                                  imageUrl: item.product.imageUrl,
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: AppTheme.backgroundColor,
-                                    child: const Center(
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      ),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) {
-                                    return Container(
-                                      width: 80,
-                                      height: 80,
-                                      color: AppTheme.backgroundColor,
-                                      child: const Icon(Icons.coffee),
-                                    );
-                                  },
-                                ),
                               ),
                               const SizedBox(width: 12),
 

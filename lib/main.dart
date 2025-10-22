@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'config/theme.dart';
@@ -8,6 +9,7 @@ import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/store_provider.dart';
 import 'providers/order_provider.dart';
+import 'utils/image_cache_manager.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -44,6 +46,17 @@ class HighlandsApp extends StatelessWidget {
         title: 'Highlands Coffee',
         theme: AppTheme.lightTheme,
         debugShowCheckedModeBanner: false,
+        // Localization support for Vietnamese
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('vi', 'VN'), // Vietnamese
+          Locale('en', 'US'), // English
+        ],
+        locale: const Locale('vi', 'VN'),
         home: const SplashScreen(),
         routes: {
           '/login': (context) => const LoginScreen(),
@@ -78,6 +91,10 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuth() async {
+    // Optimize image cache on app start for better performance
+    // Don't clear it completely to preserve cached images
+    await ImageCacheManager.optimizeCache();
+    
     await Future.delayed(const Duration(seconds: 1));
     
     if (!mounted) return;

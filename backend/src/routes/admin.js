@@ -32,9 +32,8 @@ router.post('/products', async (req, res) => {
 
     const product = await productService.createProduct(productData);
 
-    // successResponse(data, message) - data first, message second
     res.status(201).json(
-      successResponse(product, 'Product created successfully')
+      successResponse('Product created successfully', product)
     );
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
@@ -57,8 +56,7 @@ router.put('/products/:productId', async (req, res) => {
     const product = await productService.updateProduct(productId, updates);
     console.log(`Admin route: Updated product:`, JSON.stringify(product, null, 2));
     
-    // successResponse(data, message) - data first, message second
-    const response = successResponse(product, 'Product updated successfully');
+    const response = successResponse('Product updated successfully', product);
     console.log(`Admin route: Sending response:`, JSON.stringify(response, null, 2));
 
     res.json(response);
@@ -84,7 +82,7 @@ router.delete('/products/:productId', async (req, res) => {
     
     await productService.deleteProduct(productId);
 
-    res.json(successResponse(null, 'Product deleted successfully'));
+    res.json(successResponse('Product deleted successfully', null));
   } catch (error) {
     console.error(`Admin route error:`, error);
     if (error.message === 'Product not found') {
@@ -108,7 +106,7 @@ router.put('/stores/:storeId', async (req, res) => {
 
     const store = await storeService.updateStore(storeId, updates);
 
-    res.json(successResponse(store, 'Store updated successfully'));
+    res.json(successResponse('Store updated successfully', store));
   } catch (error) {
     if (error.message === 'Store not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -129,10 +127,10 @@ router.get('/promotions', async (req, res) => {
     const promotions = await promotionService.getAllPromotions();
 
     res.json(
-      successResponse({
+      successResponse('Promotions retrieved', {
         promotions: promotions.map(p => p.toJSON()),
         count: promotions.length,
-      }, 'Promotions retrieved')
+      })
     );
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
@@ -159,7 +157,7 @@ router.post('/promotions', async (req, res) => {
     const promotion = await promotionService.createPromotion(promotionData);
 
     res.status(201).json(
-      successResponse(promotion.toJSON(), 'Promotion created successfully')
+      successResponse('Promotion created successfully', promotion.toJSON())
     );
   } catch (error) {
     if (error.message === 'Promotion code already exists') {
@@ -181,7 +179,7 @@ router.put('/promotions/:promotionId', async (req, res) => {
 
     const promotion = await promotionService.updatePromotion(promotionId, updates);
 
-    res.json(successResponse(promotion.toJSON(), 'Promotion updated successfully'));
+    res.json(successResponse('Promotion updated successfully', promotion.toJSON()));
   } catch (error) {
     if (error.message === 'Promotion not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -200,7 +198,7 @@ router.delete('/promotions/:promotionId', async (req, res) => {
     const { promotionId } = req.params;
     await promotionService.deletePromotion(promotionId);
 
-    res.json(successResponse(null, 'Promotion deleted successfully'));
+    res.json(successResponse('Promotion deleted successfully', null));
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
   }
@@ -219,10 +217,10 @@ router.get('/orders', async (req, res) => {
     const orders = await orderService.getAllOrders(limit ? parseInt(limit) : 100);
 
     res.json(
-      successResponse({
+      successResponse('Orders retrieved', {
         orders,
         count: orders.length,
-      }, 'Orders retrieved')
+      })
     );
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
@@ -245,7 +243,7 @@ router.put('/orders/:orderId/status', async (req, res) => {
 
     const order = await orderService.updateOrderStatus(orderId, status);
 
-    res.json(successResponse(order, 'Order status updated'));
+    res.json(successResponse('Order status updated', order));
   } catch (error) {
     if (error.message === 'Order not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -267,10 +265,10 @@ router.get('/users', async (req, res) => {
     const users = await userService.getAllUsers(limit ? parseInt(limit) : 100);
 
     res.json(
-      successResponse({
+      successResponse('Users retrieved', {
         users,
         count: users.length,
-      }, 'Users retrieved')
+      })
     );
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
@@ -284,12 +282,13 @@ router.get('/users', async (req, res) => {
  */
 router.put('/users/:userId', async (req, res) => {
   try {
-    const { userId } = req.params;
+    // Decode URL-encoded user ID (handles special characters like #)
+    const userId = decodeURIComponent(req.params.userId);
     const updates = req.body;
 
     const user = await userService.updateUser(userId, updates);
 
-    res.json(successResponse(user, 'User updated successfully'));
+    res.json(successResponse('User updated successfully', user));
   } catch (error) {
     if (error.message === 'User not found') {
       return res.status(404).json(errorResponse(error.message, 404));
@@ -300,13 +299,14 @@ router.put('/users/:userId', async (req, res) => {
 
 /**
  * @route   PUT /api/admin/users/:userId/role
- * @desc    Update user role
+ * @desc    Update user role and assigned store
  * @access  Admin only
  */
 router.put('/users/:userId/role', async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { role } = req.body;
+    // Decode URL-encoded user ID (handles special characters like #)
+    const userId = decodeURIComponent(req.params.userId);
+    const { role, assignedStoreId } = req.body;
 
     if (!role) {
       return res.status(400).json(errorResponse('Role is required', 400));
@@ -316,12 +316,45 @@ router.put('/users/:userId/role', async (req, res) => {
       return res.status(400).json(errorResponse('Invalid role', 400));
     }
 
-    const user = await userService.updateUserRole(userId, role);
+    // Validate: Staff must have an assigned store
+    if (role === 'staff' && !assignedStoreId) {
+      return res.status(400).json(
+        errorResponse('Staff role requires an assigned store', 400)
+      );
+    }
 
-    res.json(successResponse(user, 'User role updated'));
+    const user = await userService.updateUserRole(userId, role, assignedStoreId);
+
+    res.json(successResponse('User role updated', user));
   } catch (error) {
     if (error.message === 'User not found') {
       return res.status(404).json(errorResponse(error.message, 404));
+    }
+    res.status(500).json(errorResponse(error.message, 500));
+  }
+});
+
+/**
+ * @route   DELETE /api/admin/users/:userId
+ * @desc    Delete user
+ * @access  Admin only
+ */
+router.delete('/users/:userId', async (req, res) => {
+  try {
+    // Decode URL-encoded user ID (handles special characters like #)
+    const userId = decodeURIComponent(req.params.userId);
+    console.log(`Admin route: Deleting user ${userId}`);
+
+    await userService.deleteUser(userId);
+
+    res.json(successResponse('User deleted successfully', null));
+  } catch (error) {
+    console.error(`Admin route error:`, error);
+    if (error.message === 'User not found') {
+      return res.status(404).json(errorResponse(error.message, 404));
+    }
+    if (error.message === 'Cannot delete admin users') {
+      return res.status(403).json(errorResponse(error.message, 403));
     }
     res.status(500).json(errorResponse(error.message, 500));
   }
@@ -365,7 +398,7 @@ router.get('/reports/overview', async (req, res) => {
     const avgOrderValue = completedOrders > 0 ? totalRevenue / completedOrders : 0;
 
     res.json(
-      successResponse({
+      successResponse('Report generated', {
         period: {
           startDate: startDate || 'all',
           endDate: endDate || 'all',
@@ -378,8 +411,22 @@ router.get('/reports/overview', async (req, res) => {
           totalRevenue,
           avgOrderValue,
         },
-      }, 'Report generated')
+      })
     );
+  } catch (error) {
+    res.status(500).json(errorResponse(error.message, 500));
+  }
+});
+
+/**
+ * @route   POST /api/admin/cache/clear
+ * @desc    Clear product cache
+ * @access  Admin only
+ */
+router.post('/cache/clear', async (req, res) => {
+  try {
+    productService.clearCache();
+    res.json(successResponse('Cache cleared successfully'));
   } catch (error) {
     res.status(500).json(errorResponse(error.message, 500));
   }

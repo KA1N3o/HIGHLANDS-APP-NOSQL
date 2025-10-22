@@ -15,7 +15,7 @@ router.post('/register', registerValidation, validate, async (req, res, next) =>
     
     const result = await authService.register(email, password, name, phone);
     
-    res.status(201).json(successResponse(result, 'User registered successfully'));
+    res.status(201).json(successResponse('User registered successfully', result));
   } catch (error) {
     if (error.message.includes('already exists')) {
       return res.status(409).json(errorResponse(error.message, 409));
@@ -35,7 +35,7 @@ router.post('/login', loginValidation, validate, async (req, res, next) => {
     
     const result = await authService.login(email, password);
     
-    res.status(200).json(successResponse(result, 'Login successful'));
+    res.status(200).json(successResponse('Login successful', result));
   } catch (error) {
     if (error.message.includes('Invalid')) {
       return res.status(401).json(errorResponse(error.message, 401));

@@ -1,0 +1,47 @@
+# ==================== FREEZE MỚI ====================
+
+# Freeze Trà Xanh (frz006)
+put 'products', 'product#frz006', 'info:name', 'Freeze Trà Xanh'
+put 'products', 'product#frz006', 'info:description', 'Freeze trà xanh matcha mát lạnh, thơm ngon và bổ dưỡng'
+put 'products', 'product#frz006', 'info:price', '52000'
+put 'products', 'product#frz006', 'info:category', 'freeze'
+put 'products', 'product#frz006', 'info:isAvailable', 'true'
+put 'products', 'product#frz006', 'info:preparationTime', '7'
+put 'products', 'product#frz006', 'info:rating', '4.5'
+put 'products', 'product#frz006', 'info:reviewCount', '0'
+put 'products', 'product#frz006', 'info:imageUrl', 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=400&h=300&fit=crop&q=80'
+put 'products', 'product#frz006', 'info:createdAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz006', 'info:updatedAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz006', 'options:sizes', '["Vừa","Lớn"]'
+put 'products', 'product#frz006', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Thạch trà xanh","Trân châu trắng"]}]'
+
+# Freeze Sô-Cô-La (frz007)
+put 'products', 'product#frz007', 'info:name', 'Freeze Sô-Cô-La'
+put 'products', 'product#frz007', 'info:description', 'Freeze chocolate đậm đà, ngọt ngào với vị socola Bỉ cao cấp'
+put 'products', 'product#frz007', 'info:price', '55000'
+put 'products', 'product#frz007', 'info:category', 'freeze'
+put 'products', 'product#frz007', 'info:isAvailable', 'true'
+put 'products', 'product#frz007', 'info:preparationTime', '7'
+put 'products', 'product#frz007', 'info:rating', '4.5'
+put 'products', 'product#frz007', 'info:reviewCount', '0'
+put 'products', 'product#frz007', 'info:imageUrl', 'https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=400&h=300&fit=crop&q=80'
+put 'products', 'product#frz007', 'info:createdAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz007', 'info:updatedAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz007', 'options:sizes', '["Vừa","Lớn"]'
+put 'products', 'product#frz007', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Chocolate Chips","Chocolate Sauce"]}]'
+
+# Freeze Kem Mây Dâu Tằm (frz008)
+put 'products', 'product#frz008', 'info:name', 'Freeze Kem Mây Dâu Tằm'
+put 'products', 'product#frz008', 'info:description', 'Freeze kem mây mềm mịn kết hợp với dâu tằm tươi ngọt mát'
+put 'products', 'product#frz008', 'info:price', '58000'
+put 'products', 'product#frz008', 'info:category', 'freeze'
+put 'products', 'product#frz008', 'info:isAvailable', 'true'
+put 'products', 'product#frz008', 'info:preparationTime', '8'
+put 'products', 'product#frz008', 'info:rating', '4.5'
+put 'products', 'product#frz008', 'info:reviewCount', '0'
+put 'products', 'product#frz008', 'info:imageUrl', 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=400&h=300&fit=crop&q=80'
+put 'products', 'product#frz008', 'info:createdAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz008', 'info:updatedAt', '2024-01-01T00:00:00Z'
+put 'products', 'product#frz008', 'options:sizes', '["Vừa","Lớn"]'
+put 'products', 'product#frz008', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Dâu tằm tươi","Kem mây thêm"]}]'
+

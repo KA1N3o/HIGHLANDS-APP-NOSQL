@@ -79,5 +79,14 @@ class Store {
     // Simplified approximation
     return y / x;
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Store && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
 }
 

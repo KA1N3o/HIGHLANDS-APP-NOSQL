@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/order_provider.dart';
+import '../../providers/store_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../models/order.dart';
+import '../../models/store.dart';
+import '../../models/user.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
+import '../../widgets/cached_image.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({super.key});
@@ -17,14 +21,51 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final Map<String, bool> _loadingOrders = {}; // Track loading state per order
+  Store? _selectedStore;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadOrders();
+      _loadStoresAndOrders();
     });
+  }
+
+  Future<void> _loadStoresAndOrders() async {
+    try {
+      final storeProvider = context.read<StoreProvider>();
+      final authProvider = context.read<AuthProvider>();
+      final currentUser = authProvider.currentUser;
+      
+      await storeProvider.loadStores();
+      
+      // If staff with assigned store, auto-select that store
+      if (currentUser != null && 
+          currentUser.role == UserRole.staff && 
+          currentUser.assignedStoreId != null) {
+        final assignedStore = storeProvider.stores.firstWhere(
+          (store) => store.id == currentUser.assignedStoreId,
+          orElse: () => storeProvider.stores.first,
+        );
+        
+        setState(() {
+          _selectedStore = assignedStore;
+        });
+        
+        await _loadOrders();
+      }
+      // Admin: Don't auto-select store, wait for user to select
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải danh sách cửa hàng: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -34,14 +75,29 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
   }
 
   Future<void> _loadOrders() async {
-    // Admin loads ALL orders, not just their own
-    // Limit to 50 for better performance
-    await context.read<OrderProvider>().loadAllOrders(limit: 50, forceRefresh: true);
+    try {
+      // Admin loads ALL orders, not just their own
+      // Limit to 50 for better performance
+      await context.read<OrderProvider>().loadAllOrders(limit: 50, forceRefresh: true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải đơn hàng: ${e.toString()}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final orderProvider = context.watch<OrderProvider>();
+    final storeProvider = context.watch<StoreProvider>();
+    final authProvider = context.watch<AuthProvider>();
+    final currentUser = authProvider.currentUser;
+    final isStaff = currentUser?.role == UserRole.staff;
 
     return Scaffold(
       appBar: AppBar(
@@ -50,32 +106,192 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Chờ xử lý'),
-            Tab(text: 'Đang làm'),
+            Tab(text: 'Đang xử lý'),
             Tab(text: 'Sẵn sàng'),
             Tab(text: 'Hoàn thành'),
           ],
           indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white.withOpacity(0.7),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildOrderList(orderProvider, [OrderStatus.pending]),
-          _buildOrderList(orderProvider, [OrderStatus.confirmed, OrderStatus.preparing]),
-          _buildOrderList(orderProvider, [OrderStatus.ready]),
-          _buildOrderList(orderProvider, [OrderStatus.completed, OrderStatus.cancelled]),
+          // Store info for staff with assigned store
+          if (isStaff && currentUser?.assignedStoreId != null && _selectedStore != null)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryGreen.withOpacity(0.1),
+                border: Border(
+                  bottom: BorderSide(
+                    color: AppTheme.primaryGreen.withOpacity(0.3),
+                    width: 2,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.store, color: AppTheme.primaryGreen),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Cửa hàng của bạn',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _selectedStore!.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Nhân viên',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // Store selector (only show for admin or if staff has no assigned store)
+          if (!isStaff || currentUser?.assignedStoreId == null)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.store, color: AppTheme.primaryGreen),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: storeProvider.stores.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'Đang tải danh sách cửa hàng...',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                          )
+                        : DropdownButtonFormField<Store>(
+                            value: _selectedStore,
+                            hint: const Text('Chọn cửa hàng để xem đơn hàng'),
+                            decoration: const InputDecoration(
+                              labelText: 'Cửa hàng',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            items: storeProvider.stores.map((store) {
+                              return DropdownMenuItem(
+                                value: store,
+                                child: Text(
+                                  store.name,
+                                  style: const TextStyle(fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (Store? newStore) async {
+                              if (newStore != null) {
+                                setState(() {
+                                  _selectedStore = newStore;
+                                });
+                                await _loadOrders();
+                              }
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          
+          // Orders list
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildOrderList(orderProvider, [OrderStatus.pending]),
+                _buildOrderList(orderProvider, [OrderStatus.confirmed, OrderStatus.preparing]),
+                _buildOrderList(orderProvider, [OrderStatus.ready]),
+                _buildOrderList(orderProvider, [OrderStatus.completed, OrderStatus.cancelled]),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildOrderList(OrderProvider provider, List<OrderStatus> statuses) {
+    // Show placeholder if no store selected
+    if (_selectedStore == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.store_outlined,
+              size: 80,
+              color: AppTheme.primaryGreen.withOpacity(0.3),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Chọn cửa hàng để xem đơn hàng',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Vui lòng chọn cửa hàng từ danh sách bên trên',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.textSecondary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Filter orders by selected store and status
     final orders = provider.orders
-        .where((order) => statuses.contains(order.status))
+        .where((order) => 
+            statuses.contains(order.status) && 
+            order.store.id == _selectedStore!.id)
         .toList();
 
-    print('Building order list for statuses: ${statuses.map((s) => s.name).join(', ')}');
-    print('Found ${orders.length} orders matching these statuses');
+    print('Building order list for store: ${_selectedStore?.name ?? 'All'}, statuses: ${statuses.map((s) => s.name).join(', ')}');
+    print('Found ${orders.length} orders matching these filters');
     if (orders.isNotEmpty) {
       print('Orders: ${orders.map((o) => '${o.id.substring(0, 8)}: ${o.status.name}').join(', ')}');
     }
@@ -96,10 +312,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              'Không có đơn hàng',
+              'Không có đơn hàng tại ${_selectedStore!.name}',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: AppTheme.textSecondary,
                   ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -150,6 +367,31 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(Icons.store, size: 14, color: AppTheme.primaryGreen),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    order.store.name,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppTheme.primaryGreen,
+                          fontWeight: FontWeight.w600,
+                        ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            if (order.userName != null)
+              Text(
+                order.userName!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
             Text(
               '${order.orderTime.hour}:${order.orderTime.minute.toString().padLeft(2, '0')}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -186,6 +428,42 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Store info
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.store, color: AppTheme.primaryGreen, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              order.store.name,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryGreen,
+                                  ),
+                            ),
+                            Text(
+                              order.store.address,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textSecondary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
                 // Order items
                 Text(
                   'Sản phẩm:',
@@ -198,34 +476,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
+                        CachedImage(
+                          imageUrl: item.product.imageUrl,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
                           borderRadius: BorderRadius.circular(8),
-                          child: CachedNetworkImage(
-                            imageUrl: item.product.imageUrl,
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            placeholder: (context, url) => Container(
-                              width: 50,
-                              height: 50,
-                              color: AppTheme.backgroundColor,
-                              child: const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              ),
-                            ),
-                            errorWidget: (context, url, error) {
-                              return Container(
-                                width: 50,
-                                height: 50,
-                                color: AppTheme.backgroundColor,
-                                child: const Icon(Icons.coffee, size: 24),
-                              );
-                            },
-                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -480,7 +736,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
       case OrderStatus.confirmed:
         return 'Đã xác nhận';
       case OrderStatus.preparing:
-        return 'Đang làm';
+        return 'Đang xử lý';
       case OrderStatus.ready:
         return 'Sẵn sàng';
       case OrderStatus.completed:
