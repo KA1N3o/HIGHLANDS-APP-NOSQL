@@ -15,6 +15,7 @@ class Product {
     this.reviewCount = data.reviewCount !== undefined ? parseInt(data.reviewCount) : 0;
     this.sizes = data.sizes || ['Medium', 'Large'];
     this.options = data.options || []; // [{ name: 'Đường', choices: ['Ít', 'Vừa', 'Nhiều'] }]
+    this.availableToppings = data.availableToppings || []; // [{ id: 'topping1', name: 'Trân châu', price: 10000 }]
     this.createdAt = data.createdAt || new Date().toISOString();
     this.updatedAt = data.updatedAt || new Date().toISOString();
   }
@@ -33,6 +34,7 @@ class Product {
       reviewCount: this.reviewCount || 0,
       sizes: this.sizes || [],
       options: this.options || [],
+      availableToppings: this.availableToppings || [],
       createdAt: this.createdAt || new Date().toISOString(),
       updatedAt: this.updatedAt || new Date().toISOString(),
     };
@@ -55,6 +57,7 @@ class Product {
       reviewCount: parsedData.reviewCount ? parseInt(parsedData.reviewCount) : 0,
       sizes: parsedData.sizes ? JSON.parse(parsedData.sizes || '[]') : [],
       options: parsedData.options ? JSON.parse(parsedData.options || '[]') : [],
+      availableToppings: parsedData.availableToppings ? JSON.parse(parsedData.availableToppings || '[]') : [],
       createdAt: parsedData.createdAt || new Date().toISOString(),
       updatedAt: parsedData.updatedAt || new Date().toISOString(),
     });

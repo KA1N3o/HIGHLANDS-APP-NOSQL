@@ -43,3 +43,4 @@ if ($products.data.count -ge 11) {
     Write-Host "Cache chua clear. Restart backend (Ctrl+C trong terminal backend, roi npm start)" -ForegroundColor Yellow
 }
 
+

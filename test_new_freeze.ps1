@@ -83,3 +83,4 @@ Write-Host "2. Nhan Shift+R de Hot Restart" -ForegroundColor Cyan
 Write-Host "3. Vao muc 'Freeze' de xem!" -ForegroundColor Cyan
 Write-Host ""
 
+

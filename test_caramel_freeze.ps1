@@ -65,3 +65,4 @@ Write-Host "2. Nhan Shift+R de Hot Restart" -ForegroundColor Cyan
 Write-Host "3. Kiem tra hinh anh Caramel Coffee Freeze!" -ForegroundColor Cyan
 Write-Host ""
 
+

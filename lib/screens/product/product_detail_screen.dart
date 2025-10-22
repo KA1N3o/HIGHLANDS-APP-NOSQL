@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/cart_item.dart';
+import '../../models/topping.dart';
 import '../../providers/cart_provider.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
@@ -19,6 +20,7 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   late String _selectedSize;
   final Map<String, String> _selectedOptions = {};
+  final List<Topping> _selectedToppings = [];
   final TextEditingController _notesController = TextEditingController();
   int _quantity = 1;
 
@@ -46,7 +48,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     super.dispose();
   }
 
-  // Giá cho 1 món (đã tính size và options, chưa tính quantity)
+  // Giá cho 1 món (đã tính size, options và toppings, chưa tính quantity)
   double get _pricePerItem {
     // Giá gốc là giá của size nhỏ nhất
     double priceForSize = widget.product.price;
@@ -66,6 +68,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         priceForSize += option.extraPrice;
       }
     }
+    
+    // Add price for toppings
+    double toppingTotal = 0;
+    for (var topping in _selectedToppings) {
+      toppingTotal += topping.price;
+      print('DEBUG: Topping ${topping.name} - Price: ${topping.price}');
+    }
+    priceForSize += toppingTotal;
+    
+    print('DEBUG: Base price: ${widget.product.price}, After size: $priceForSize, Toppings total: $toppingTotal, Selected toppings: ${_selectedToppings.length}');
     
     return priceForSize;
   }
@@ -91,6 +103,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       product: widget.product,
       size: _selectedSize,
       selectedOptions: Map.from(_selectedOptions),
+      selectedToppings: _selectedToppings.isEmpty ? null : List.from(_selectedToppings),
       notes: _notesController.text.isNotEmpty ? _notesController.text : null,
       quantity: _quantity,
     );
@@ -294,6 +307,44 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ],
                           );
                         }),
+
+                        // Toppings
+                        if (widget.product.availableToppings.isNotEmpty) ...[
+                          Text(
+                            'Topping',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          ...widget.product.availableToppings.map((topping) {
+                            final isSelected = _selectedToppings.contains(topping);
+                            return CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(topping.name),
+                              subtitle: Text(
+                                '+${topping.price.toCurrency()}',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppTheme.primaryGreen,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              value: isSelected,
+                              activeColor: AppTheme.primaryGreen,
+                              enabled: topping.isAvailable,
+                              onChanged: topping.isAvailable
+                                  ? (selected) {
+                                      setState(() {
+                                        if (selected == true) {
+                                          _selectedToppings.add(topping);
+                                        } else {
+                                          _selectedToppings.remove(topping);
+                                        }
+                                      });
+                                    }
+                                  : null,
+                            );
+                          }),
+                          const SizedBox(height: 24),
+                        ],
 
                         // Notes
                         Text(

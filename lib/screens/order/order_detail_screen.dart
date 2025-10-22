@@ -341,6 +341,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                             color: AppTheme.textSecondary,
                                           ),
                                     ),
+                                    if (item.selectedToppings.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Topping: ${item.selectedToppings.map((t) => t.name).join(', ')}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppTheme.primaryGreen,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

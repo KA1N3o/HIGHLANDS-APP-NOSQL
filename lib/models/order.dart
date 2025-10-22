@@ -121,6 +121,7 @@ class Order {
         'quantity': e.quantity,
         'size': e.size,
         'options': e.selectedOptions,
+        'selectedToppings': e.selectedToppings.map((t) => t.toJson()).toList(), // ✅ Thêm topping
       }).toList(),
       'subtotal': subtotal,
       'tax': tax,

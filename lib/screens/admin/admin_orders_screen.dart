@@ -381,6 +381,34 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Topping indicator badge
+                if (order.items.any((item) => item.selectedToppings.isNotEmpty))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentOrange,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.add_circle,
+                          size: 10,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'Topping',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 2),
@@ -500,6 +528,40 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen>
                                       color: AppTheme.textSecondary,
                                     ),
                               ),
+                              if (item.selectedToppings.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryGreen.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: AppTheme.primaryGreen.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline,
+                                        size: 14,
+                                        color: AppTheme.primaryGreen,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          'Topping: ${item.selectedToppings.map((t) => t.name).join(', ')}',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: AppTheme.primaryGreen,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                               if (item.selectedOptions.isNotEmpty)
                                 Text(
                                   item.selectedOptions.values.join(', '),

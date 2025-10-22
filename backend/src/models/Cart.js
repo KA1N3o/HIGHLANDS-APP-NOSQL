@@ -8,6 +8,7 @@ class CartItem {
     this.quantity = data.quantity || 0;
     this.size = data.size || 'Medium';
     this.options = data.options || {}; // { 'Đường': 'Vừa', 'Đá': 'Ít' }
+    this.selectedToppings = data.selectedToppings || []; // [{ id: 'topping1', name: 'Trân châu', price: 10000 }]
     this.imageUrl = data.imageUrl || null;
     this.note = data.note || '';
   }
@@ -24,6 +25,7 @@ class CartItem {
       quantity: this.quantity || 0,
       size: this.size || 'Medium',
       options: this.options || {},
+      selectedToppings: this.selectedToppings || [],
       imageUrl: this.imageUrl || null,
       note: this.note || '',
       subtotal: this.subtotal || 0,

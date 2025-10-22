@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'topping.dart';
 
 class Product {
   final String id;
@@ -9,6 +10,7 @@ class Product {
   final ProductCategory category;
   final List<String> sizes;
   final List<ProductOption> options;
+  final List<Topping> availableToppings;
   final bool isAvailable;
   final int preparationTime; // in minutes
   final double rating; // Average rating (0-5)
@@ -23,11 +25,12 @@ class Product {
     required this.category,
     required this.sizes,
     required this.options,
+    List<Topping>? availableToppings,
     this.isAvailable = true,
     this.preparationTime = 10,
     this.rating = 4.5,
     this.reviewCount = 0,
-  });
+  }) : availableToppings = availableToppings ?? [];
 
   factory Product.fromJson(Map<String, dynamic> json) {
     // Parse price - handle both string and number
@@ -84,6 +87,32 @@ class Product {
       return [];
     }
     
+    // Parse toppings - handle both string JSON and array
+    List<Topping> parseToppings(dynamic value) {
+      if (value == null) return [];
+      if (value is List) {
+        return value
+            .whereType<Map<String, dynamic>>()
+            .map((e) => Topping.fromJson(e))
+            .toList();
+      }
+      if (value is String) {
+        try {
+          final decoded = jsonDecode(value);
+          if (decoded is List) {
+            return decoded
+                .whereType<Map<String, dynamic>>()
+                .map((e) => Topping.fromJson(e))
+                .toList();
+          }
+        } catch (e) {
+          // If JSON decode fails, return empty
+          print('DEBUG: Error parsing toppings: $e');
+        }
+      }
+      return [];
+    }
+    
     // Parse boolean - handle both bool and string
     bool parseBool(dynamic value, bool defaultValue) {
       if (value == null) return defaultValue;
@@ -115,6 +144,7 @@ class Product {
       ),
       sizes: parseSizes(json['sizes']),
       options: parseOptions(json['options']),
+      availableToppings: parseToppings(json['availableToppings'] ?? json['toppings']),
       isAvailable: parseBool(json['isAvailable'], true),
       preparationTime: parseInt(json['preparationTime'], 10),
       rating: parsePrice(json['rating'] ?? json['averageRating'], defaultValue: 4.5),
@@ -132,6 +162,7 @@ class Product {
       'category': category.name,
       'sizes': sizes,
       'options': options.map((e) => e.toJson()).toList(),
+      'availableToppings': availableToppings.map((e) => e.toJson()).toList(),
       'isAvailable': isAvailable,
       'preparationTime': preparationTime,
     };

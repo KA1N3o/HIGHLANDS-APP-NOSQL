@@ -2,3 +2,4 @@ get 'products', 'product#pastry007'
 get 'products', 'product#pastry008'
 scan 'products', {FILTER => "PrefixFilter('product#pastry')"}
 
+

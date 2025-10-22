@@ -139,6 +139,19 @@ class CartScreen extends StatelessWidget {
                                             ),
                                       ),
                                     ],
+                                    if (item.selectedToppings.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Topping: ${item.selectedToppings.map((t) => t.name).join(', ')}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppTheme.primaryGreen,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                      ),
+                                    ],
                                     if (item.notes != null) ...[
                                       const SizedBox(height: 2),
                                       Text(

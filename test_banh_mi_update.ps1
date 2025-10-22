@@ -90,3 +90,4 @@ Write-Host "2. Nhan Shift+R de Hot Restart" -ForegroundColor Cyan
 Write-Host "3. Kiem tra tab 'Banh Mi' va 'Banh Ngot'!" -ForegroundColor Cyan
 Write-Host ""
 
+

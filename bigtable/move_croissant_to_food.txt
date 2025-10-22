@@ -6,3 +6,4 @@ put 'products', 'product#pastry001', 'info:category', 'food'
 # Croissant Chocolate (pastry002) -> food
 put 'products', 'product#pastry002', 'info:category', 'food'
 
+

@@ -32,3 +32,4 @@ Write-Host ""
 Write-Host "Hoặc thêm trực tiếp vào HBase bằng file hbase_new_pastries.txt" -ForegroundColor Cyan
 Write-Host ""
 
+

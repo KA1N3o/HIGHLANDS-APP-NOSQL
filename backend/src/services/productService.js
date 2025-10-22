@@ -65,6 +65,20 @@ class ProductService {
         options = [];
       }
 
+      // Parse availableToppings
+      let availableToppings = [];
+      if (Array.isArray(data.availableToppings)) {
+        availableToppings = data.availableToppings;
+      } else if (typeof data.availableToppings === 'string') {
+        try {
+          availableToppings = JSON.parse(data.availableToppings || '[]');
+        } catch {
+          availableToppings = [];
+        }
+      } else {
+        availableToppings = [];
+      }
+
       const isAvailable = (data.isAvailable === true) || (String(data.isAvailable).toLowerCase() === 'true');
 
       return {
@@ -80,6 +94,7 @@ class ProductService {
         reviewCount: data.reviewCount ? parseInt(data.reviewCount) : 0,
         sizes,
         options,
+        availableToppings,
         createdAt: data.createdAt || new Date().toISOString(),
         updatedAt: data.updatedAt || new Date().toISOString(),
       };
@@ -231,7 +246,7 @@ class ProductService {
     // Update allowed fields
     const allowedFields = [
       'name', 'description', 'price', 'imageUrl', 'category',
-      'isAvailable', 'preparationTime', 'sizes', 'options'
+      'isAvailable', 'preparationTime', 'sizes', 'options', 'availableToppings'
     ];
 
     const updateData = {};
@@ -257,6 +272,7 @@ class ProductService {
       preparationTime: updateData.preparationTime !== undefined ? updateData.preparationTime.toString() : product.preparationTime.toString(),
       sizes: JSON.stringify(updateData.sizes || product.sizes),
       options: JSON.stringify(updateData.options || product.options),
+      availableToppings: JSON.stringify(updateData.availableToppings || product.availableToppings || []),
       updatedAt: updateData.updatedAt,
     };
 
@@ -327,6 +343,7 @@ class ProductService {
     const optionsMutations = createMutations('options', {
       sizes: JSON.stringify(product.sizes),
       options: JSON.stringify(product.options),
+      availableToppings: JSON.stringify(product.availableToppings || []),
     });
 
     // Combine all mutations

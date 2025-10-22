@@ -45,3 +45,4 @@ put 'products', 'product#frz008', 'info:updatedAt', '2024-01-01T00:00:00Z'
 put 'products', 'product#frz008', 'options:sizes', '["Vừa","Lớn"]'
 put 'products', 'product#frz008', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Dâu tằm tươi","Kem mây thêm"]}]'
 
+

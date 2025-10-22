@@ -163,16 +163,35 @@ class OrderService {
         throw new Error(`Product ${product.name} is not available`);
       }
 
-      const itemTotal = (product.price || 0) * (item.quantity || 0);
+      // Calculate price with size and toppings
+      let itemPrice = product.price || 0;
+      
+      // Add price for size (each size up is +30%)
+      const sizeIndex = product.sizes ? product.sizes.indexOf(item.size) : 0;
+      if (sizeIndex > 0) {
+        for (let i = 0; i < sizeIndex; i++) {
+          itemPrice *= 1.3;
+        }
+      }
+      
+      // Add price for toppings
+      if (item.selectedToppings && Array.isArray(item.selectedToppings)) {
+        for (const topping of item.selectedToppings) {
+          itemPrice += topping.price || 0;
+        }
+      }
+      
+      const itemTotal = itemPrice * (item.quantity || 0);
       subtotal += itemTotal;
 
       orderItems.push({
         productId: item.productId || '',
         name: product.name || 'Unknown Product',
-        price: product.price || 0,
+        price: itemPrice, // Price per item with size and toppings
         quantity: item.quantity || 0,
         size: item.size || 'Medium',
         options: item.options || [],
+        selectedToppings: item.selectedToppings || [],
         total: itemTotal,
       });
     }
@@ -299,9 +318,10 @@ class OrderService {
           preparationTime: '10' // String number for Flutter
         },
         size: item.size || 'Medium',
-        selectedOptions: {}, // Selected options not stored properly
+        selectedOptions: item.options || {}, // Return actual options
+        selectedToppings: item.selectedToppings || [], // ✅ Return toppings!
         quantity: item.quantity || 0,
-        notes: ''  // Ensure notes is always a string
+        notes: item.notes || ''  // Return actual notes
       })),
       subtotal: subtotal,
       tax: tax,
@@ -630,7 +650,8 @@ class OrderService {
               preparationTime: '10'
             },
             size: itemData.size || 'Medium',
-            selectedOptions: {},
+            selectedOptions: itemData.options || {},
+            selectedToppings: itemData.selectedToppings || [], // ✅ CRITICAL: Return toppings for admin panel!
             quantity: itemData.quantity || 0,
             notes: itemData.notes || ''
           };
@@ -753,7 +774,8 @@ class OrderService {
               preparationTime: '10' // String number for Flutter
             },
             size: itemData.size || 'Medium',
-            selectedOptions: {}, // Selected options not stored properly
+            selectedOptions: itemData.options || {}, // Return actual options
+            selectedToppings: itemData.selectedToppings || [], // ✅ Return toppings!
             quantity: itemData.quantity || 0,
             notes: itemData.notes || ''  // Ensure notes is always a string
           };

@@ -1,9 +1,11 @@
 import 'product.dart';
+import 'topping.dart';
 
 class CartItem {
   final Product product;
   final String size;
   final Map<String, String> selectedOptions;
+  final List<Topping> selectedToppings;
   final String? notes;
   int quantity;
 
@@ -11,9 +13,10 @@ class CartItem {
     required this.product,
     required this.size,
     required this.selectedOptions,
+    List<Topping>? selectedToppings,
     this.notes,
     this.quantity = 1,
-  });
+  }) : selectedToppings = selectedToppings ?? [];
 
   double get totalPrice {
     // Giá gốc là giá của size nhỏ nhất
@@ -35,6 +38,11 @@ class CartItem {
       }
     }
     
+    // Add price for toppings
+    for (var topping in selectedToppings) {
+      priceForSize += topping.price;
+    }
+    
     return priceForSize * quantity;
   }
 
@@ -50,10 +58,23 @@ class CartItem {
       return {};
     }
     
+    // Parse selectedToppings - handle null and various formats
+    List<Topping> parseSelectedToppings(dynamic value) {
+      if (value == null) return [];
+      if (value is List) {
+        return value
+            .whereType<Map<String, dynamic>>()
+            .map((e) => Topping.fromJson(e))
+            .toList();
+      }
+      return [];
+    }
+    
     return CartItem(
       product: Product.fromJson(json['product'] as Map<String, dynamic>),
       size: json['size']?.toString() ?? 'Medium',
       selectedOptions: parseSelectedOptions(json['selectedOptions']),
+      selectedToppings: parseSelectedToppings(json['selectedToppings']),
       notes: json['notes']?.toString(),
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     );
@@ -64,6 +85,7 @@ class CartItem {
       'product': product.toJson(),
       'size': size,
       'selectedOptions': selectedOptions,
+      'selectedToppings': selectedToppings.map((e) => e.toJson()).toList(),
       'notes': notes,
       'quantity': quantity,
     };
@@ -73,6 +95,7 @@ class CartItem {
     Product? product,
     String? size,
     Map<String, String>? selectedOptions,
+    List<Topping>? selectedToppings,
     String? notes,
     int? quantity,
   }) {
@@ -80,6 +103,7 @@ class CartItem {
       product: product ?? this.product,
       size: size ?? this.size,
       selectedOptions: selectedOptions ?? this.selectedOptions,
+      selectedToppings: selectedToppings ?? this.selectedToppings,
       notes: notes ?? this.notes,
       quantity: quantity ?? this.quantity,
     );
@@ -90,6 +114,7 @@ class CartItem {
     return product.id == other.product.id &&
         size == other.size &&
         _mapsEqual(selectedOptions, other.selectedOptions) &&
+        _listsEqual(selectedToppings, other.selectedToppings) &&
         notes == other.notes;
   }
 
@@ -97,6 +122,14 @@ class CartItem {
     if (map1.length != map2.length) return false;
     for (var key in map1.keys) {
       if (map1[key] != map2[key]) return false;
+    }
+    return true;
+  }
+
+  bool _listsEqual(List<Topping> list1, List<Topping> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].id != list2[i].id) return false;
     }
     return true;
   }
