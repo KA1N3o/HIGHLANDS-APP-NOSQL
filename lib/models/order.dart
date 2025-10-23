@@ -125,6 +125,8 @@ class Order {
       }).toList(),
       'subtotal': subtotal,
       'tax': tax,
+      'deliveryFee': deliveryFee,
+      'discount': discount,
       'total': total,
       'status': status.name,
       'paymentMethod': paymentMethod.name,
@@ -135,6 +137,7 @@ class Order {
       'pickupTime': pickupTime?.toIso8601String(),
       'completedTime': completedTime?.toIso8601String(),
       'notes': notes,
+      'promotionCode': promotionCode,
     };
   }
 

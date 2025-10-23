@@ -4,6 +4,7 @@ import '../models/user.dart';
 import '../models/product.dart';
 import '../models/order.dart';
 import '../models/store.dart';
+import '../models/promotion.dart';
 
 class ApiService {
   // Replace with your actual Bigtable REST API endpoint
@@ -882,6 +883,178 @@ class ApiService {
       }
     } catch (e) {
       throw Exception('Delete product error: $e');
+    }
+  }
+
+  // ===== PROMOTION METHODS =====
+
+  /// Get all active promotions
+  Future<List<Promotion>> getActivePromotions() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/promotions'),
+        headers: _headers,
+      ).timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final data = jsonResponse['data'] as Map<String, dynamic>;
+          final promotionsList = data['promotions'] as List;
+          return promotionsList
+              .map((json) => Promotion.fromJson(json as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw Exception('Failed to load promotions: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to load promotions: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Load promotions error: $e');
+    }
+  }
+
+  /// Validate and apply promotion code
+  Future<Map<String, dynamic>> validatePromotion(String code, double orderValue) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/promotions/validate'),
+        headers: _headers,
+        body: jsonEncode({
+          'code': code,
+          'orderValue': orderValue,
+        }),
+      ).timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return jsonResponse['data'] as Map<String, dynamic>;
+        } else {
+          throw Exception(jsonResponse['error']?['message'] ?? 'Invalid promotion code');
+        }
+      } else {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(jsonResponse['error']?['message'] ?? 'Invalid promotion code');
+      }
+    } catch (e) {
+      throw Exception('Validate promotion error: $e');
+    }
+  }
+
+  // Admin promotion methods
+
+  /// Get all promotions (admin)
+  Future<List<Promotion>> getAllPromotions() async {
+    try {
+      final response = await _client.get(
+        Uri.parse('$baseUrl/admin/promotions'),
+        headers: _headers,
+      ).timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        print('API getAllPromotions response success: ${jsonResponse['success']}');
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          final data = jsonResponse['data'] as Map<String, dynamic>;
+          
+          // Backend returns data.promotions as array
+          final promotionsList = data['promotions'] as List;
+          print('API getAllPromotions count: ${promotionsList.length}');
+          
+          if (promotionsList.isNotEmpty) {
+            print('First promotion ID: ${promotionsList[0]['id']}');
+            print('First promotion code: ${promotionsList[0]['code']}');
+          }
+          
+          return promotionsList
+              .map((json) => Promotion.fromJson(json as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw Exception('Failed to load promotions: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        throw Exception('Failed to load promotions: ${response.body}');
+      }
+    } catch (e) {
+      print('API getAllPromotions error: $e');
+      throw Exception('Load promotions error: $e');
+    }
+  }
+
+  /// Create new promotion (admin)
+  Future<Promotion> createPromotion(Map<String, dynamic> promotionData) async {
+    try {
+      final response = await _client.post(
+        Uri.parse('$baseUrl/admin/promotions'),
+        headers: _headers,
+        body: jsonEncode(promotionData),
+      ).timeout(_timeout);
+
+      if (response.statusCode == 201) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return Promotion.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to create promotion: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(jsonResponse['error']?['message'] ?? 'Failed to create promotion');
+      }
+    } catch (e) {
+      throw Exception('Create promotion error: $e');
+    }
+  }
+
+  /// Update promotion (admin)
+  Future<Promotion> updatePromotion(String promotionId, Map<String, dynamic> updates) async {
+    try {
+      final encodedPromotionId = Uri.encodeComponent(promotionId);
+      final response = await _client.put(
+        Uri.parse('$baseUrl/admin/promotions/$encodedPromotionId'),
+        headers: _headers,
+        body: jsonEncode(updates),
+      ).timeout(_timeout);
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          return Promotion.fromJson(jsonResponse['data'] as Map<String, dynamic>);
+        } else {
+          throw Exception('Failed to update promotion: ${jsonResponse['error']?['message'] ?? 'Unknown error'}');
+        }
+      } else {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(jsonResponse['error']?['message'] ?? 'Failed to update promotion');
+      }
+    } catch (e) {
+      throw Exception('Update promotion error: $e');
+    }
+  }
+
+  /// Delete promotion (admin)
+  Future<void> deletePromotion(String promotionId) async {
+    try {
+      final encodedPromotionId = Uri.encodeComponent(promotionId);
+      final response = await _client.delete(
+        Uri.parse('$baseUrl/admin/promotions/$encodedPromotionId'),
+        headers: _headers,
+      ).timeout(_timeout);
+
+      if (response.statusCode != 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(jsonResponse['error']?['message'] ?? 'Failed to delete promotion');
+      }
+    } catch (e) {
+      throw Exception('Delete promotion error: $e');
     }
   }
 

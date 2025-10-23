@@ -33,3 +33,6 @@ Write-Host "Hoặc thêm trực tiếp vào HBase bằng file hbase_new_pastries
 Write-Host ""
 
 
+
+
+

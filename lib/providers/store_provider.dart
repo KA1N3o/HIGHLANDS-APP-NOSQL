@@ -29,6 +29,12 @@ class StoreProvider with ChangeNotifier {
       return;
     }
 
+    // Check if user is authenticated
+    if (!_useMockData && _apiService.authToken == null) {
+      print('StoreProvider: Cannot load stores - user not authenticated');
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
@@ -45,9 +51,10 @@ class StoreProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      print('StoreProvider: Error loading stores: $e');
       _isLoading = false;
       notifyListeners();
-      rethrow;
+      // Don't rethrow - just log the error
     }
   }
   

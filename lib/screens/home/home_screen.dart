@@ -4,6 +4,7 @@ import 'package:badges/badges.dart' as badges;
 import '../../providers/product_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/promotion_provider.dart';
 import '../../models/product.dart';
 import '../../models/user.dart';
 import '../../config/theme.dart';
@@ -211,6 +212,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   Navigator.pushNamed(context, '/admin/orders');
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.discount, color: AppTheme.accentOrange),
+                title: const Text('Quản lý mã giảm giá',
+                    style: TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, '/admin/promotions');
+                },
+              ),
             ],
             ListTile(
               leading: const Icon(Icons.person_outline),
@@ -227,6 +237,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: AppTheme.errorColor)),
               onTap: () async {
                 await authProvider.logout();
+                // Clear promotions on logout
+                context.read<PromotionProvider>().clear();
                 if (context.mounted) {
                   Navigator.of(context).pushReplacementNamed('/login');
                 }

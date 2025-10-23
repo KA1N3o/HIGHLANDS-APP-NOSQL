@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const { parseRowData, decodeEscapedUTF8 } = require('../utils/helpers');
+const { decodeEscapedUTF8 } = require('../utils/helpers');
 
 class Promotion {
   constructor(data) {
@@ -23,9 +23,27 @@ class Promotion {
   isValid() {
     if (!this.isActive) return false;
     
+    // Use UTC for comparison to avoid timezone issues
     const now = new Date();
-    const startDate = new Date(this.startDate);
-    const endDate = new Date(this.endDate);
+    
+    // Parse dates - they might be in local time or UTC
+    let startDate = new Date(this.startDate);
+    let endDate = new Date(this.endDate);
+    
+    // If dates are in local time (no Z), they need to be adjusted
+    // Check if startDate string contains 'Z' or timezone offset
+    const startDateStr = this.startDate.toString();
+    const endDateStr = this.endDate.toString();
+    
+    // If dates don't have timezone info, treat them as UTC
+    if (!startDateStr.includes('Z') && !startDateStr.includes('+') && !startDateStr.includes('-', 10)) {
+      // Add Z to make it UTC
+      startDate = new Date(startDateStr + 'Z');
+    }
+    
+    if (!endDateStr.includes('Z') && !endDateStr.includes('+') && !endDateStr.includes('-', 10)) {
+      endDate = new Date(endDateStr + 'Z');
+    }
 
     if (now < startDate || now > endDate) return false;
     
@@ -47,6 +65,10 @@ class Promotion {
       }
     } else if (this.type === 'fixed_amount') {
       discount = this.value;
+    } else if (this.type === 'free_shipping') {
+      // For free shipping, return a nominal value (shipping cost)
+      // This is handled separately in the checkout process
+      discount = this.value || 0; // Can be 0, but we'll handle it specially
     }
 
     return Math.min(discount, orderValue);
@@ -78,25 +100,24 @@ class Promotion {
   }
 
   static fromBigtableRow(row, rowData) {
-    // Use parseRowData helper to ensure proper UTF-8 decoding
-    const parsedData = parseRowData(rowData);
+    // rowData is already parsed by promotionService, no need to parse again
     
     return new Promotion({
       id: row.id || '',
-      code: decodeEscapedUTF8(parsedData.code) || '',
-      name: decodeEscapedUTF8(parsedData.name) || '',
-      description: decodeEscapedUTF8(parsedData.description) || '',
-      type: parsedData.type || 'percentage',
-      value: parseFloat(parsedData.value) || 0,
-      minOrderValue: parseFloat(parsedData.minOrderValue) || 0,
-      maxDiscount: parsedData.maxDiscount ? parseFloat(parsedData.maxDiscount) : null,
-      usageLimit: parsedData.usageLimit ? parseInt(parsedData.usageLimit) : null,
-      usageCount: parseInt(parsedData.usageCount) || 0,
-      startDate: parsedData.startDate || new Date().toISOString(),
-      endDate: parsedData.endDate || new Date().toISOString(),
-      isActive: (parsedData.isActive === 'true') || (parsedData.isActive === true),
-      createdAt: parsedData.createdAt || new Date().toISOString(),
-      updatedAt: parsedData.updatedAt || new Date().toISOString(),
+      code: decodeEscapedUTF8(rowData.code) || '',
+      name: decodeEscapedUTF8(rowData.name) || '',
+      description: decodeEscapedUTF8(rowData.description) || '',
+      type: rowData.type || 'percentage',
+      value: parseFloat(rowData.value) || 0,
+      minOrderValue: parseFloat(rowData.minOrderValue) || 0,
+      maxDiscount: rowData.maxDiscount ? parseFloat(rowData.maxDiscount) : null,
+      usageLimit: rowData.usageLimit ? parseInt(rowData.usageLimit) : null,
+      usageCount: parseInt(rowData.usageCount) || 0,
+      startDate: rowData.startDate || new Date().toISOString(),
+      endDate: rowData.endDate || new Date().toISOString(),
+      isActive: (rowData.isActive === 'true') || (rowData.isActive === true),
+      createdAt: rowData.createdAt || new Date().toISOString(),
+      updatedAt: rowData.updatedAt || new Date().toISOString(),
     });
   }
 }

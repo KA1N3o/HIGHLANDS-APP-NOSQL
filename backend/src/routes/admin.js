@@ -147,8 +147,10 @@ router.post('/promotions', async (req, res) => {
     const promotionData = req.body;
 
     // Validate required fields
+    // Note: value can be 0 (for free_shipping), so check for null/undefined explicitly
     if (!promotionData.code || !promotionData.name || !promotionData.type || 
-        !promotionData.value || !promotionData.startDate || !promotionData.endDate) {
+        promotionData.value === undefined || promotionData.value === null ||
+        !promotionData.startDate || !promotionData.endDate) {
       return res.status(400).json(
         errorResponse('Missing required fields', 400)
       );

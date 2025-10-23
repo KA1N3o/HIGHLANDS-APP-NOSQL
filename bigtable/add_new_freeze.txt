@@ -46,3 +46,6 @@ put 'products', 'product#frz008', 'options:sizes', '["Vừa","Lớn"]'
 put 'products', 'product#frz008', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Dâu tằm tươi","Kem mây thêm"]}]'
 
 
+
+
+

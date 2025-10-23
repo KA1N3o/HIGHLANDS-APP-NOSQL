@@ -71,3 +71,6 @@ put 'products', 'product#pastry011', 'options:sizes', '["Standard"]'
 put 'products', 'product#pastry011', 'options:options', '[{"name":"Topping","choices":["Không","Whipped Cream","Chocolate Chips","Gold Leaf"]}]'
 
 
+
+
+

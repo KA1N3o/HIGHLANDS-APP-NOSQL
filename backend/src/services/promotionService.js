@@ -9,13 +9,39 @@ class PromotionService {
   async createPromotion(promotionData) {
     const promotion = new Promotion(promotionData);
     
-    // Check if code already exists
-    const existing = await this.getPromotionByCode(promotion.code).catch(() => null);
-    if (existing) {
+    console.log('\n=== createPromotion ===');
+    console.log('New promotion code:', promotion.code);
+    
+    // Check if code already exists (only check active promotions)
+    let existing = null;
+    try {
+      existing = await this.getPromotionByCode(promotion.code);
+      console.log('Found existing promotion:', existing ? existing.id : 'null');
+      console.log('Existing isActive:', existing ? existing.isActive : 'N/A');
+    } catch (error) {
+      // If getPromotionByCode throws 'Promotion not found', it's OK - no existing promotion
+      if (error.message === 'Promotion not found') {
+        console.log('✅ OK: No existing promotion found');
+      } else {
+        // Unexpected error from Bigtable
+        console.log('❌ Unexpected error from getPromotionByCode:', error.message);
+        throw error;
+      }
+    }
+    
+    // Now check if existing promotion is active
+    if (existing && existing.isActive) {
+      console.log('❌ Rejecting: Active promotion with same code exists');
       throw new Error('Promotion code already exists');
     }
+    
+    if (existing && !existing.isActive) {
+      console.log('✅ OK: Existing promotion is inactive, can reuse code');
+    }
 
+    console.log('Saving new promotion...');
     await this.savePromotion(promotion);
+    console.log('✅ Promotion created successfully');
     return promotion;
   }
 
@@ -40,28 +66,23 @@ class PromotionService {
    * Get promotion by code
    */
   async getPromotionByCode(code) {
-    const promotionsTable = tables.promotions;
+    console.log('\n=== getPromotionByCode ===');
+    console.log('Looking for code:', code);
     
-    const [rows] = await promotionsTable.getRows({
-      filter: [
-        {
-          column: {
-            cellLimit: 1,
-            familyName: 'info',
-            columnQualifier: 'code',
-            value: code,
-          },
-        },
-      ],
-    });
-
-    if (!rows || rows.length === 0) {
+    // Get all promotions and filter in code (Bigtable filter seems unreliable)
+    const allPromotions = await this.getAllPromotions();
+    console.log('Total promotions in DB:', allPromotions.length);
+    
+    // Filter by code (case-insensitive)
+    const found = allPromotions.find(p => p.code.toUpperCase() === code.toUpperCase());
+    
+    if (!found) {
+      console.log('❌ Promotion not found');
       throw new Error('Promotion not found');
     }
-
-    const row = rows[0];
-    const promotionData = parseRowData(row);
-    return Promotion.fromBigtableRow(row, promotionData);
+    
+    console.log('✅ Found promotion:', found.id, '- Active:', found.isActive);
+    return found;
   }
 
   /**
@@ -74,9 +95,15 @@ class PromotionService {
       throw new Error('Promotion is not valid or has expired');
     }
 
+    // Check minimum order value first
+    if (orderValue < promotion.minOrderValue) {
+      throw new Error('Order does not meet minimum value requirement');
+    }
+    
     const discount = promotion.calculateDiscount(orderValue);
     
-    if (discount === 0) {
+    // For free_shipping, discount can be 0 - that's OK as long as minOrderValue is met
+    if (discount === 0 && promotion.type !== 'free_shipping') {
       throw new Error('Order does not meet minimum value requirement');
     }
 
@@ -118,10 +145,26 @@ class PromotionService {
     const options = filters.length > 0 ? { filter: filters } : {};
     const [rows] = await promotionsTable.getRows(options);
 
+    console.log(`Got ${rows.length} promotion rows from HBase`);
+
     const promotions = rows.map(row => {
-      const promotionData = parseRowData(row);
-      return Promotion.fromBigtableRow(row, promotionData);
-    });
+      try {
+        console.log(`\n=== Processing row: ${row.id} ===`);
+        console.log('Row data structure keys:', Object.keys(row.data || row));
+        
+        const promotionData = parseRowData(row.data || row);
+        console.log('Parsed promotion data:', JSON.stringify(promotionData, null, 2));
+        console.log(`Parsed promotion code: ${promotionData.code || 'unknown'}`);
+        
+        const promotion = Promotion.fromBigtableRow(row, promotionData);
+        console.log(`Created promotion: ${promotion.code} (${promotion.type})`);
+        return promotion;
+      } catch (error) {
+        console.error(`Error parsing promotion row:`, error.message);
+        console.error(error.stack);
+        return null;
+      }
+    }).filter(p => p !== null);
 
     // Filter by date validity if activeOnly
     if (activeOnly) {
@@ -169,32 +212,28 @@ class PromotionService {
   async savePromotion(promotion) {
     const promotionsTable = tables.promotions;
     const row = promotionsTable.row(promotion.id);
+    const { createMutations } = require('../utils/helpers');
 
-    const mutations = [
-      {
-        method: 'insert',
-        data: {
-          info: {
-            code: promotion.code,
-            name: promotion.name,
-            description: promotion.description,
-            type: promotion.type,
-            value: promotion.value.toString(),
-            minOrderValue: promotion.minOrderValue.toString(),
-            maxDiscount: promotion.maxDiscount ? promotion.maxDiscount.toString() : '',
-            usageLimit: promotion.usageLimit ? promotion.usageLimit.toString() : '',
-            usageCount: promotion.usageCount.toString(),
-            startDate: promotion.startDate,
-            endDate: promotion.endDate,
-            isActive: promotion.isActive.toString(),
-            createdAt: promotion.createdAt,
-            updatedAt: promotion.updatedAt,
-          },
-        },
-      },
-    ];
+    const mutations = createMutations('info', {
+      code: promotion.code,
+      name: promotion.name,
+      description: promotion.description,
+      type: promotion.type,
+      value: promotion.value.toString(),
+      minOrderValue: promotion.minOrderValue.toString(),
+      maxDiscount: promotion.maxDiscount ? promotion.maxDiscount.toString() : '',
+      usageLimit: promotion.usageLimit ? promotion.usageLimit.toString() : '',
+      usageCount: promotion.usageCount.toString(),
+      startDate: promotion.startDate,
+      endDate: promotion.endDate,
+      isActive: promotion.isActive.toString(),
+      createdAt: promotion.createdAt,
+      updatedAt: promotion.updatedAt,
+    });
 
+    console.log(`Saving promotion ${promotion.id} with code ${promotion.code}`);
     await row.save(mutations);
+    console.log(`✓ Promotion ${promotion.code} saved successfully`);
   }
 }
 

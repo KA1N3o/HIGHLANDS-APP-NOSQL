@@ -12,6 +12,7 @@ const { successResponse } = require('../utils/helpers');
 router.get('/', authMiddleware, async (req, res, next) => {
   try {
     const { lat, lon, radius } = req.query;
+    const user = req.user; // Get authenticated user from middleware
     
     let stores;
     if (lat && lon) {
@@ -23,6 +24,13 @@ router.get('/', authMiddleware, async (req, res, next) => {
     } else {
       stores = await storeService.getAllStores();
     }
+    
+    // Filter stores based on user role
+    // If user is staff with assigned store, only return that store
+    if (user.role === 'staff' && user.assignedStoreId) {
+      stores = stores.filter(store => store.id === user.assignedStoreId);
+    }
+    // Admin and customers can see all stores
     
     res.status(200).json(successResponse('Stores retrieved', stores));
   } catch (error) {

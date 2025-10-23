@@ -10,43 +10,14 @@ class AuthProvider with ChangeNotifier {
   String? _authToken;
   bool _isLoading = false;
   bool _useMockData = false; // Set to false when backend is ready
+  bool _hasRestoredSession = false; // Track if we've already restored
 
-    AuthProvider(this._apiService) {
-    // Auto-restore session when provider is created
-    _restoreSession();
-  }
+  AuthProvider(this._apiService);
 
   User? get currentUser => _currentUser;
   String? get authToken => _authToken;
   bool get isLoading => _isLoading;
   bool get isAuthenticated => _currentUser != null && _authToken != null;
-
-  // Restore session from SharedPreferences
-  Future<void> _restoreSession() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedToken = prefs.getString('auth_token');
-      final savedUserId = prefs.getString('user_id');
-      
-      if (savedToken != null && savedUserId != null) {
-        _authToken = savedToken;
-        // IMPORTANT: Set token in ApiService
-        _apiService.setAuthToken(savedToken);
-        
-        // Try to get current user info from API
-        try {
-          _currentUser = await _apiService.getCurrentUser();
-          notifyListeners();
-        } catch (e) {
-          // If token is expired or invalid, clear session
-          print('Failed to restore session: $e');
-          await logout();
-        }
-      }
-    } catch (e) {
-      print('Error restoring session: $e');
-    }
-  }
 
   Future<void> login(String email, String password) async {
     _isLoading = true;
@@ -87,6 +58,7 @@ class AuthProvider with ChangeNotifier {
         await prefs.setString('user_id', _currentUser!.id);
       }
       
+      _hasRestoredSession = true; // Mark as restored after successful login
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -140,6 +112,7 @@ class AuthProvider with ChangeNotifier {
         await prefs.setString('user_id', _currentUser!.id);
       }
       
+      _hasRestoredSession = true; // Mark as restored after successful registration
       _isLoading = false;
       notifyListeners();
     } catch (e) {
@@ -152,6 +125,10 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     _currentUser = null;
     _authToken = null;
+    _hasRestoredSession = false; // Reset flag on logout
+    
+    // Clear token from ApiService
+    _apiService.setAuthToken('');
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
@@ -161,7 +138,14 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> loadSavedAuth() async {
+    // Prevent multiple calls
+    if (_hasRestoredSession) {
+      print('DEBUG loadSavedAuth: Already restored, skipping');
+      return;
+    }
+    
     print('DEBUG loadSavedAuth: method called');
+    _hasRestoredSession = true;
     _isLoading = true;
     notifyListeners();
 

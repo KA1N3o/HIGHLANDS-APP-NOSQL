@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/promotion_provider.dart';
 import '../../config/theme.dart';
 import '../../utils/image_cache_manager.dart';
 
@@ -401,6 +402,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () {
               authProvider.logout();
+              // Clear promotions on logout
+              context.read<PromotionProvider>().clear();
               Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
             },
           ),

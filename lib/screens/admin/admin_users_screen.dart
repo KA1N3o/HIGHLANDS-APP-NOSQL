@@ -38,6 +38,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Future<void> _loadUsers() async {
+    if (!mounted) return;
+    
     setState(() => _isLoading = true);
     try {
       final apiService = context.read<AuthProvider>().authToken != null
@@ -51,12 +53,18 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       }
 
       final users = await apiService.getAllUsers();
+      
+      if (!mounted) return;
+      
       setState(() {
         _users = users;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
+      
       setState(() => _isLoading = false);
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi tải danh sách người dùng: $e')),

@@ -7,3 +7,6 @@ put 'products', 'product#pastry001', 'info:category', 'food'
 put 'products', 'product#pastry002', 'info:category', 'food'
 
 
+
+
+

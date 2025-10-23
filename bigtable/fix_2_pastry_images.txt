@@ -7,3 +7,6 @@ put 'products', 'product#pastry007', 'info:imageUrl', 'https://images.unsplash.c
 put 'products', 'product#pastry010', 'info:imageUrl', 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop&q=80'
 
 
+
+
+

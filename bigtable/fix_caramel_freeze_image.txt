@@ -4,3 +4,6 @@
 put 'products', 'product#frz001', 'info:imageUrl', 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=300&fit=crop&q=80'
 
 
+
+
+

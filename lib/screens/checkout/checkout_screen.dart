@@ -5,6 +5,7 @@ import '../../providers/cart_provider.dart';
 import '../../providers/store_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/order_provider.dart';
+import '../../providers/promotion_provider.dart';
 import '../../models/order.dart';
 import '../../config/theme.dart';
 import '../../utils/currency_formatter.dart';
@@ -22,8 +23,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final _notesController = TextEditingController();
   final _streetAddressController = TextEditingController();
   final _wardController = TextEditingController();
+  final _promoCodeController = TextEditingController();
   DateTime? _selectedPickupTime;
   bool _isProcessing = false;
+  bool _isApplyingPromo = false;
 
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _notesController.dispose();
     _streetAddressController.dispose();
     _wardController.dispose();
+    _promoCodeController.dispose();
     super.dispose();
   }
 
@@ -75,6 +79,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         });
       }
     }
+  }
+
+  Future<void> _applyPromoCode() async {
+    final promoCode = _promoCodeController.text.trim().toUpperCase();
+    if (promoCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập mã giảm giá'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isApplyingPromo = true;
+    });
+
+    try {
+      final cartProvider = context.read<CartProvider>();
+      final promotionProvider = context.read<PromotionProvider>();
+      
+      await promotionProvider.applyPromotion(promoCode, cartProvider.subtotal);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã áp dụng mã "$promoCode"'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isApplyingPromo = false;
+        });
+      }
+    }
+  }
+
+  void _removePromoCode() {
+    context.read<PromotionProvider>().removePromotion();
+    _promoCodeController.clear();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã xóa mã giảm giá'),
+        backgroundColor: AppTheme.successColor,
+      ),
+    );
   }
 
   Future<void> _placeOrder() async {
@@ -119,6 +182,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         };
       }
 
+      final promotionProvider = Provider.of<PromotionProvider>(context, listen: false);
+      
       final order = Order(
         id: const Uuid().v4(),
         userId: authProvider.currentUser!.id,
@@ -127,7 +192,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         subtotal: cartProvider.subtotal,
         tax: cartProvider.tax,
         deliveryFee: cartProvider.deliveryFee,
-        total: cartProvider.total,
+        discount: promotionProvider.discountAmount,
+        total: cartProvider.total - promotionProvider.discountAmount,
         status: OrderStatus.pending,
         paymentMethod: _selectedPaymentMethod,
         paymentStatus: PaymentStatus.pending,
@@ -136,13 +202,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         orderTime: DateTime.now(),
         pickupTime: _selectedPickupTime,
         notes: _notesController.text.isNotEmpty ? _notesController.text : null,
+        promotionCode: promotionProvider.appliedPromotion?.code,
       );
 
       // Create order
       final createdOrder = await orderProvider.createOrder(order);
 
-      // Clear cart
+      // Clear cart and promotion
       cartProvider.clear();
+      promotionProvider.clear();
 
       if (mounted) {
         setState(() {
@@ -207,6 +275,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
     final storeProvider = context.watch<StoreProvider>();
+    final promotionProvider = context.watch<PromotionProvider>();
+    
+    // Update discount when cart changes
+    if (promotionProvider.hasAppliedPromotion) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        promotionProvider.updateDiscount(cartProvider.subtotal);
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -390,6 +466,151 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   style: Theme.of(context).textTheme.bodyMedium),
                             ],
                           ),
+                          const SizedBox(height: 16),
+                          
+                          // Promo code section
+                          if (!promotionProvider.hasAppliedPromotion)
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _promoCodeController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Nhập mã giảm giá',
+                                      prefixIcon: const Icon(Icons.discount),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                    ),
+                                    textCapitalization: TextCapitalization.characters,
+                                    enabled: !_isApplyingPromo,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: _isApplyingPromo ? null : _applyPromoCode,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryGreen,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  child: _isApplyingPromo
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          ),
+                                        )
+                                      : const Text('Áp dụng'),
+                                ),
+                              ],
+                            ),
+                          
+                          // Applied promo code display
+                          if (promotionProvider.hasAppliedPromotion)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.successColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppTheme.successColor.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.discount,
+                                    color: AppTheme.successColor,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          promotionProvider.appliedPromotion!.code,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.successColor,
+                                          ),
+                                        ),
+                                        Text(
+                                          promotionProvider.appliedPromotion!.name,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close),
+                                    color: Colors.red,
+                                    onPressed: _removePromoCode,
+                                    tooltip: 'Xóa mã',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
+                          // Discount amount display
+                          if (promotionProvider.hasAppliedPromotion) ...[
+                            const SizedBox(height: 8),
+                            // Product discount (percentage or fixed amount)
+                            if (promotionProvider.discountAmount > 0)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Giảm giá',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '-${promotionProvider.discountAmount.toCurrency()}',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppTheme.successColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            // Shipping discount (free shipping)
+                            if (promotionProvider.isFreeShipping && cartProvider.deliveryFee > 0) ...[
+                              if (promotionProvider.discountAmount > 0) const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Miễn phí ship',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '-${promotionProvider.getShippingDiscount(cartProvider.deliveryFee).toCurrency()}',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: AppTheme.successColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                          
                           const Divider(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -397,7 +618,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               Text('Tổng cộng',
                                   style: Theme.of(context).textTheme.titleLarge),
                               Text(
-                                cartProvider.total.toCurrency(),
+                                (cartProvider.total - promotionProvider.discountAmount - promotionProvider.getShippingDiscount(cartProvider.deliveryFee)).toCurrency(),
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleLarge

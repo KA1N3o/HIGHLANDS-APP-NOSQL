@@ -9,6 +9,7 @@ import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/store_provider.dart';
 import 'providers/order_provider.dart';
+import 'providers/promotion_provider.dart';
 import 'utils/image_cache_manager.dart';
 
 import 'screens/auth/login_screen.dart';
@@ -22,6 +23,7 @@ import 'screens/profile/profile_screen.dart';
 import 'screens/admin/admin_orders_screen.dart';
 import 'screens/admin/admin_products_screen.dart';
 import 'screens/admin/admin_users_screen.dart';
+import 'screens/admin/admin_promotions_screen.dart';
 
 void main() {
   runApp(const HighlandsApp());
@@ -41,6 +43,7 @@ class HighlandsApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ProductProvider(apiService)),
         ChangeNotifierProvider(create: (_) => StoreProvider(apiService)),
         ChangeNotifierProvider(create: (_) => OrderProvider(apiService)),
+        ChangeNotifierProvider(create: (_) => PromotionProvider(apiService)),
       ],
       child: MaterialApp(
         title: 'Highlands Coffee',
@@ -70,6 +73,7 @@ class HighlandsApp extends StatelessWidget {
           '/admin/orders': (context) => const AdminOrdersScreen(),
           '/admin/products': (context) => const AdminProductsScreen(),
           '/admin/users': (context) => const AdminUsersScreen(),
+          '/admin/promotions': (context) => const AdminPromotionsScreen(),
         },
       ),
     );

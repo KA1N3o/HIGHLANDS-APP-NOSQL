@@ -1,0 +1,12 @@
+# Create promotions table in HBase
+# Run these commands in HBase shell
+
+create 'promotions', 'info'
+
+# Verify table was created
+list
+
+# Check table structure
+describe 'promotions'
+
+                                                
