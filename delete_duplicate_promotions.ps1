@@ -28,3 +28,4 @@ foreach ($promo in $freesPromos) {
 Write-Host "`nAll FREES promotions deleted!" -ForegroundColor Cyan
 
 
+

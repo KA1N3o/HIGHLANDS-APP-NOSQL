@@ -132,3 +132,4 @@ Test PASSED ✓
 - StoreProvider sẽ tự động chỉ lưu stores được backend trả về
 - Admin và customer không bị ảnh hưởng, vẫn thấy tất cả stores
 
+

@@ -36,3 +36,4 @@ $verifyResponse = Invoke-RestMethod -Uri "$baseUrl/admin/promotions" -Method Get
 Write-Host "Remaining promotions: $($verifyResponse.data.promotions.Count)" -ForegroundColor Yellow
 
 
+
